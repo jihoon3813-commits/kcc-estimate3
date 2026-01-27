@@ -613,6 +613,14 @@ const CustomerPage = () => {
                             <span className="font-bold text-xs">문자보내기</span>
                             <div className="w-6 h-6 bg-yellow-400 text-white rounded-full flex items-center justify-center shadow-md"><MessageCircle size={12} fill="currentColor" /></div>
                         </a>
+                        <a href="http://pf.kakao.com/_xiRTwn/chat" target="_blank" rel="noopener noreferrer" className="bg-white text-[#001a3d] p-3 rounded-xl shadow-xl flex items-center justify-between gap-2 min-w-[130px] border border-gray-100 hover:bg-gray-50 transition-colors">
+                            <span className="font-bold text-xs">카톡상담</span>
+                            <div className="w-6 h-6 bg-[#FAE100] text-[#371D1E] rounded-full flex items-center justify-center shadow-md">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                                    <path d="M12 3c-5.523 0-10 3.577-10 8.001 0 2.62 1.558 4.965 3.996 6.435-.16.575-.582 2.083-.665 2.45-.105.474.173.467.362.341 1.503-1.002 3.064-2.115 3.996-2.733.748.11 1.52.17 2.311.17 5.523 0 10-3.577 10-8.001S17.523 3 12 3z" />
+                                </svg>
+                            </div>
+                        </a>
                     </div>
                 )}
                 <button
