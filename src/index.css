@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Pretendard+Std:wght@100..900&family=Outfit:wght@100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Pretendard Std', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f7f9fc;
+  color: #1a1a1a;
+  letter-spacing: -0.02em;
+}
+
+.font-outfit {
+  font-family: 'Outfit', sans-serif;
+}
+
+@layer components {
+
+  /* 공통 유틸리티 - 라운딩 율 통일 (24px = 1.5rem = 3xl) */
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-3xl;
+  }
+
+  .btn-primary {
+    @apply bg-[#003478] text-white px-6 py-3 rounded-2xl font-bold hover:bg-[#0056b3] transition-all active:scale-95 shadow-lg;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-[#0056b3] focus:ring-2 focus:ring-[#0056b3]/20 outline-none transition-all bg-white;
+  }
+
+  /* 럭셔리 테마 지원 - 라운딩 율 3xl(1.5rem)로 통일 */
+  .luxury-glass {
+    @apply bg-white/70 backdrop-blur-2xl border border-white/30 rounded-3xl;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  }
+
+  .luxury-card {
+    @apply bg-white rounded-3xl border border-gray-100 shadow-sm transition-all duration-500 hover:shadow-xl;
+  }
+
+  .premium-btn {
+    @apply bg-[#001a3d] text-white font-black py-4 px-8 rounded-3xl transition-all duration-300 hover:bg-[#c5a059] active:scale-95 shadow-xl;
+  }
+
+  .premium-gradient {
+    @apply rounded-3xl;
+    background: linear-gradient(135deg, #001a3d 0%, #003366 100%);
+  }
+
+  .purple-premium-gradient {
+    @apply rounded-3xl;
+    background: linear-gradient(135deg, #311b92 0%, #6a1b9a 100%);
+  }
+
+  .gold-shimmer {
+    background: linear-gradient(90deg, #c5a059 0%, #ecd08d 50%, #c5a059 100%);
+    background-size: 200% auto;
+    animation: shimmer 3s linear infinite;
+  }
+
+  .text-luxury {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#001a3d] to-[#c5a059];
+  }
+
+  .frosted-glass {
+    @apply rounded-3xl;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.float-animation {
+  animation: float 5s ease-in-out infinite;
+}

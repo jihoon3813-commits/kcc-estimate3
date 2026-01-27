@@ -1,0 +1,191 @@
+// Code.gs
+
+// *** 설정: 구글 드라이브 폴더 ID를 여기에 넣으세요 ***
+const PDF_FOLDER_ID = "1Ao6RDkbcXQQQ4RRQ6ymGid3cT6anwQp0";
+
+function doGet(e) {
+  var page = e.parameter.page;
+  var template;
+
+  if (page == 'admin') {
+    template = HtmlService.createTemplateFromFile('Admin');
+    return template.evaluate()
+      .setTitle('견적 관리자 페이지')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } else {
+    template = HtmlService.createTemplateFromFile('Customer');
+    return template.evaluate()
+      .setTitle('KCC 홈씨씨 견적 조회(PLUS)')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+}
+
+/**
+ * [관리자] 데이터 저장
+ * DB 열 순서(요청 반영):
+ * - 접수일
+ * - 지점
+ * - 견적구분
+ * - 고객명
+ * - 전화번호
+ * - 주소
+ * - 최종 견적가
+ * - 최종 혜택가
+ * - 할인율
+ * - 추가할인
+ * - 마진금액
+ * - 마진율
+ * - 24 구독료
+ * - 36 구독료
+ * - 48 구독료
+ * - 60 구독료
+ * - 사은품 텍스트
+ * - 상세내역(JSON)
+ * - PDF링크
+ */
+function saveQuoteData(formObject) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('DB');
+    if (!sheet) throw new Error("DB 시트를 찾을 수 없습니다.");
+
+    // 1) PDF 저장
+    var pdfUrl = "";
+    if (formObject.pdfFile && formObject.pdfFile.length > 0) {
+      var folder = DriveApp.getFolderById(PDF_FOLDER_ID);
+      var blob = formObject.pdfFile;
+      var newFileName = formObject.customerName + "_" + formObject.customerPhone + "_견적서.pdf";
+      blob.setName(newFileName);
+      var file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      pdfUrl = file.getDownloadUrl();
+    }
+
+    // 2) 숫자 파싱
+    var finalEstimate = Number(formObject.finalEstimate) || 0;
+    var finalBenefit = Number(formObject.finalBenefit) || 0;
+    var discountRate = Number(formObject.discountRate) || 0;
+    var extraDiscount = Number(formObject.extraDiscount) || 0;
+    var marginAmount = Number(formObject.marginAmount) || 0;
+    var marginRate = Number(formObject.marginRate) || 0;
+
+    var sub24 = Number(formObject.sub24) || 0;
+    var sub36 = Number(formObject.sub36) || 0;
+    var sub48 = Number(formObject.sub48) || 0;
+    var sub60 = Number(formObject.sub60) || 0;
+
+    // 3) 시트 저장
+    sheet.appendRow([
+      new Date(),                 // 접수일
+      formObject.branch || "",    // 지점
+      formObject.estimateStatus || "가견적", // 견적구분
+      formObject.customerName || "",
+      "'" + (formObject.customerPhone || ""), // 전화번호(문자 처리)
+      formObject.address || "",
+      finalEstimate,
+      finalBenefit,
+      discountRate,
+      extraDiscount,
+      marginAmount,
+      marginRate,
+      sub24,
+      sub36,
+      sub48,
+      sub60,
+      formObject.giftText || "",
+      formObject.itemsJson || "",
+      pdfUrl
+    ]);
+
+    return { success: true, message: (formObject.estimateStatus || "가견적") + " 등록 완료!" };
+
+  } catch (err) {
+    return { success: false, message: "Error: " + err.toString() };
+  }
+}
+
+/**
+ * [고객] 견적 조회 + 설정(가전/배너) 데이터 조회
+ */
+function searchQuote(name, phone) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('DB');
+  var data = sheet.getDataRange().getValues();
+
+  var result = { success: false, message: "일치하는 견적 정보를 찾을 수 없습니다." };
+
+  // DB 열 인덱스 (0-based)
+  // 0 접수일, 1 지점, 2 견적구분, 3 고객명, 4 전화번호, 5 주소, 6 최종견적가, 7 최종혜택가,
+  // 8 할인율, 9 추가할인, 10 마진금액, 11 마진율, 12~15 구독료, 16 사은품, 17 JSON, 18 PDF링크
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rowName = String(data[i][3]).trim();
+    var rowPhone = String(data[i][4]).replace(/-/g, '').replace(/'/g, '').trim();
+
+    if (rowName == String(name).trim() && rowPhone == String(phone).replace(/-/g, '').trim()) {
+      result.success = true;
+      result.data = {
+        date: Utilities.formatDate(data[i][0], "GMT+9", "yyyy-MM-dd"),
+        branch: data[i][1],
+        status: data[i][2] || "가견적",
+        name: rowName,
+        address: data[i][5],
+
+        finalEstimate: data[i][6],
+        finalBenefit: data[i][7],
+        discountRate: data[i][8],
+        extraDiscount: data[i][9],
+
+        sub24: data[i][12],
+        sub36: data[i][13],
+        sub48: data[i][14],
+        sub60: data[i][15],
+
+        giftText: data[i][16],
+        items: JSON.parse(data[i][17] || "[]"),
+        pdfUrl: data[i][18] || ""
+      };
+      break;
+    }
+  }
+
+  // 2. Config 시트 데이터 (가전옵션, 배너)
+  if (result.success) {
+    var configSheet = ss.getSheetByName('Config');
+    var appliances = [];
+    var banners = [];
+
+    if (configSheet) {
+      var configData = configSheet.getDataRange().getValues();
+
+      for (var k = 1; k < configData.length; k++) {
+        var row = configData[k];
+
+        // 가전 데이터 (A~F열)
+        if (row[0] && row[3]) {
+          appliances.push({
+            type: row[0],
+            category: row[1],
+            img: row[2],
+            name: row[3],
+            model: row[4],
+            link: row[5]
+          });
+        }
+
+        // 배너 데이터 (H~J열)
+        if (row[7] && row[8]) {
+          banners.push({
+            img: row[7],
+            link: row[8],
+            height: row[9] || 100
+          });
+        }
+      }
+    }
+    result.config = { appliances: appliances, banners: banners };
+  }
+
+  return result;
+}

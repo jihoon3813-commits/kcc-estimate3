@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+
+<body class="bg-gray-100 p-6">
+  <div class="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-lg border-t-4 border-blue-600">
+    <h1 class="text-2xl font-bold mb-1 text-gray-800">KCC 견적 등록 시스템(한캐_PLUS)</h1>
+    <p class="text-sm text-gray-500 mb-6">부가세 포함(1.1배) · 100원 단위 절삭 · 설치위치(기타) 분리 합산</p>
+
+    <form id="uploadForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+
+      <!-- 0) 지점 선택 -->
+      <div class="bg-indigo-50 p-4 rounded border border-indigo-200 flex items-center justify-between">
+        <label class="font-bold text-gray-700 text-sm">🏢 지점 선택</label>
+        <div class="flex space-x-4">
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="radio" name="branch" value="인천" checked class="form-radio text-indigo-600 h-5 w-5">
+            <span class="text-sm font-semibold text-gray-700">인천</span>
+          </label>
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="radio" name="branch" value="수원" class="form-radio text-indigo-600 h-5 w-5">
+            <span class="text-sm font-semibold text-gray-700">수원</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 1) 견적 구분 -->
+      <div class="bg-gray-50 p-4 rounded border border-gray-200 flex items-center justify-between">
+        <label class="font-bold text-gray-700 text-sm">🔖 견적 구분</label>
+        <div class="flex space-x-4">
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="radio" name="estimateStatus" value="가견적" checked class="form-radio text-blue-600 h-5 w-5">
+            <span class="text-sm font-medium text-gray-600">가견적</span>
+          </label>
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="radio" name="estimateStatus" value="최종견적" class="form-radio text-red-600 h-5 w-5">
+            <span class="text-sm font-bold text-red-600">최종견적</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 2) 파일 등록 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-blue-50 p-4 rounded border border-blue-200">
+          <label class="block text-gray-700 font-bold mb-2 text-sm">📄 엑셀 등록 (.xlsx)</label>
+          <input type="file" id="excelFile" class="w-full text-sm" accept=".xlsx, .xls, .csv" required />
+          <p class="text-[11px] text-blue-700 mt-2">
+            * 엑셀 C열(설치위치) 값이 <b>기타</b>인 항목은 기타비로, 그 외는 자재비로 합산합니다.
+          </p>
+        </div>
+        <div class="bg-red-50 p-4 rounded border border-red-200">
+          <label class="block text-gray-700 font-bold mb-2 text-sm">📎 PDF 등록 (.pdf)</label>
+          <input type="file" name="pdfFile" class="w-full text-sm" accept=".pdf" required />
+        </div>
+      </div>
+
+      <!-- 3) 견적가 상세(자동 계산) -->
+      <div class="bg-emerald-50 p-4 rounded border border-emerald-200">
+        <h3 class="font-bold text-emerald-800 mb-3 text-sm">🧾 견적가 상세(자동 계산)</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="bg-white p-3 rounded border">
+            <div class="text-[11px] text-gray-500 font-bold mb-1">자재비(부가세 포함)</div>
+            <div class="text-lg font-black text-emerald-700" id="v_material">0원</div>
+          </div>
+          <div class="bg-white p-3 rounded border">
+            <div class="text-[11px] text-gray-500 font-bold mb-1">기타비(부가세 포함)</div>
+            <div class="text-lg font-black text-emerald-700" id="v_etc">0원</div>
+          </div>
+          <div class="bg-white p-3 rounded border border-emerald-300">
+            <div class="text-[11px] text-gray-500 font-bold mb-1">최종 견적가(합계)</div>
+            <div class="text-xl font-black text-emerald-800" id="v_final_est">0원</div>
+          </div>
+        </div>
+        <p class="text-[11px] text-emerald-700 mt-2">
+          * 자재비/기타비 = (해당 항목 금액 합 × 1.1) 후 <b>100원 단위 절삭</b>
+        </p>
+      </div>
+
+      <!-- 4) 마진 설정 -->
+      <div class="bg-yellow-50 p-4 rounded border border-yellow-200">
+        <h3 class="font-bold text-yellow-800 mb-3 text-sm">💰 마진 설정</h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-gray-700 text-xs font-bold mb-1">KCC 공급가(부가세 포함)</label>
+            <input type="text" name="supplyCost" id="supplyCost" class="w-full p-2 border rounded text-right" placeholder="예: 3,520,000" inputmode="numeric">
+            <p class="text-[10px] text-gray-500 mt-1">* 숫자 입력 시 자동 콤마 적용</p>
+          </div>
+          <div>
+            <label class="block text-gray-700 text-xs font-bold mb-1">할인율(%)</label>
+            <input type="number" step="0.01" name="discountRate" id="discountRate" class="w-full p-2 border rounded text-right" placeholder="예: 4.7" required>
+            <p class="text-[10px] text-gray-500 mt-1">* 예: 4.7</p>
+          </div>
+          <div>
+            <label class="block text-gray-700 text-xs font-bold mb-1">추가할인(금액)</label>
+            <input type="text" name="extraDiscount" id="extraDiscount" class="w-full p-2 border rounded text-right" placeholder="예: 200,000" inputmode="numeric" value="0">
+            <p class="text-[10px] text-gray-500 mt-1">* 숫자 입력 시 자동 콤마 적용</p>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="bg-white p-3 rounded border">
+            <div class="text-[11px] text-gray-500 font-bold mb-1">최종 혜택가</div>
+            <div class="text-lg font-black text-yellow-800" id="v_final_benefit">0원</div>
+            <div class="text-[10px] text-gray-400 mt-1" id="v_discount_breakdown">-</div>
+          </div>
+          <div class="bg-white p-3 rounded border">
+            <div class="text-[11px] text-gray-500 font-bold mb-1">마진 금액</div>
+            <div class="text-lg font-black text-gray-900" id="v_margin_amt">0원</div>
+          </div>
+          <div class="bg-white p-3 rounded border">
+            <div class="text-[11px] text-gray-500 font-bold mb-1">마진율</div>
+            <div class="text-lg font-black text-gray-900" id="v_margin_rate">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5) 구독료(자동 계산) -->
+      <div class="bg-slate-50 p-4 rounded border border-slate-200">
+        <h3 class="font-bold text-slate-800 mb-3 text-sm">📌 구독료(최종 혜택가 기준)</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+          <div class="bg-white p-3 rounded border"><div class="text-[11px] text-gray-500 font-bold mb-1">24개월</div><div class="font-black text-slate-800" id="v_sub_24">0원/월</div></div>
+          <div class="bg-white p-3 rounded border"><div class="text-[11px] text-gray-500 font-bold mb-1">36개월</div><div class="font-black text-slate-800" id="v_sub_36">0원/월</div></div>
+          <div class="bg-white p-3 rounded border"><div class="text-[11px] text-gray-500 font-bold mb-1">48개월</div><div class="font-black text-slate-800" id="v_sub_48">0원/월</div></div>
+          <div class="bg-white p-3 rounded border border-slate-300"><div class="text-[11px] text-gray-500 font-bold mb-1">60개월</div><div class="font-black text-slate-900" id="v_sub_60">0원/월</div></div>
+        </div>
+        <p class="text-[10px] text-gray-500 mt-2">* 내부 계산: 연 10% 가정, 100원 단위 절삭</p>
+      </div>
+
+      <!-- 6) 사은품 텍스트 -->
+      <div class="bg-purple-50 p-4 rounded border border-purple-200">
+        <h3 class="font-bold text-purple-800 mb-3 text-sm">🎁 사은품 텍스트</h3>
+        <input type="text" name="giftText" class="w-full p-2 border rounded" placeholder="예: 신세계 상품권 30만원 + 블랙 STS 방충망 업그레이드" value="-">
+      </div>
+
+      <!-- hidden fields (DB 저장용) -->
+      <input type="hidden" name="customerName" id="h_name">
+      <input type="hidden" name="customerPhone" id="h_phone">
+      <input type="hidden" name="address" id="h_address">
+
+      <input type="hidden" name="finalEstimate" id="h_final_est">
+      <input type="hidden" name="materialCost" id="h_material">
+      <input type="hidden" name="etcCost" id="h_etc">
+
+      <input type="hidden" name="finalBenefit" id="h_final_benefit">
+      <input type="hidden" name="marginAmount" id="h_margin_amt">
+      <input type="hidden" name="marginRate" id="h_margin_rate">
+
+      <input type="hidden" name="sub24" id="h_sub_24">
+      <input type="hidden" name="sub36" id="h_sub_36">
+      <input type="hidden" name="sub48" id="h_sub_48">
+      <input type="hidden" name="sub60" id="h_sub_60">
+
+      <input type="hidden" name="itemsJson" id="h_items">
+
+      <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 transition shadow-md">
+        데이터 분석 및 등록
+      </button>
+    </form>
+
+    <div id="status" class="mt-4 text-center font-bold text-gray-700"></div>
+  </div>
+
+  <script>
+    const fmt = (n) => (Number(n || 0)).toLocaleString() + "원";
+    const clampNum = (v) => isFinite(v) ? v : 0;
+
+    function floorTo100(n) {
+      n = clampNum(Number(n || 0));
+      return Math.floor(n / 100) * 100;
+    }
+
+    function parseMoneyText(v) {
+      if (v === null || v === undefined) return 0;
+      return clampNum(Number(String(v).replace(/[^0-9.-]/g, ""))) || 0;
+    }
+
+    function formatMoneyInput(el) {
+      const num = parseMoneyText(el.value);
+      el.value = num ? num.toLocaleString() : (String(el.value).trim() === "" ? "" : "0");
+    }
+
+    function calculatePMT(P, rate, months) {
+      if (P <= 0) return 0;
+      const r = rate / 100 / 12;
+      const n = months;
+      const pmt = P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+      return floorTo100(pmt);
+    }
+
+    let g_finalEstimate = 0;
+    let g_material = 0;
+    let g_etc = 0;
+
+    function recalcBenefitAndMargin() {
+      const discountRate = clampNum(Number(document.getElementById("discountRate").value || 0));
+      const supplyCost = parseMoneyText(document.getElementById("supplyCost").value);
+      const extraDiscount = parseMoneyText(document.getElementById("extraDiscount").value);
+
+      const discountAmt = g_finalEstimate * (discountRate / 100);
+      const finalBenefit = Math.max(0, Math.round(g_finalEstimate - discountAmt - extraDiscount));
+
+      const marginAmt = Math.round(finalBenefit - supplyCost);
+      const marginRate = finalBenefit > 0 ? (marginAmt / finalBenefit) : 0;
+
+      // UI
+      document.getElementById("v_final_benefit").innerText = fmt(finalBenefit);
+      document.getElementById("v_discount_breakdown").innerText =
+        `할인(${discountRate}%): -${fmt(Math.round(discountAmt))} / 추가할인: -${fmt(extraDiscount)}`;
+
+      document.getElementById("v_margin_amt").innerText = fmt(marginAmt);
+      document.getElementById("v_margin_rate").innerText = (marginRate * 100).toFixed(2) + "%";
+
+      // 구독료 (혜택가 기준)
+      const ir = 10;
+      const s24 = calculatePMT(finalBenefit, ir, 24);
+      const s36 = calculatePMT(finalBenefit, ir, 36);
+      const s48 = calculatePMT(finalBenefit, ir, 48);
+      const s60 = calculatePMT(finalBenefit, ir, 60);
+      document.getElementById("v_sub_24").innerText = fmt(s24) + "/월";
+      document.getElementById("v_sub_36").innerText = fmt(s36) + "/월";
+      document.getElementById("v_sub_48").innerText = fmt(s48) + "/월";
+      document.getElementById("v_sub_60").innerText = fmt(s60) + "/월";
+
+      // hidden
+      document.getElementById("h_final_benefit").value = finalBenefit;
+      document.getElementById("h_margin_amt").value = marginAmt;
+      document.getElementById("h_margin_rate").value = (marginRate * 100).toFixed(4); // 시트엔 %로 저장
+
+      document.getElementById("h_sub_24").value = s24;
+      document.getElementById("h_sub_36").value = s36;
+      document.getElementById("h_sub_48").value = s48;
+      document.getElementById("h_sub_60").value = s60;
+    }
+
+    // 입력 포맷팅 + 재계산 트리거
+    document.addEventListener("input", (e) => {
+      if (e.target && (e.target.id === "supplyCost" || e.target.id === "extraDiscount")) {
+        formatMoneyInput(e.target);
+      }
+      if (e.target && (e.target.id === "discountRate" || e.target.id === "supplyCost" || e.target.id === "extraDiscount")) {
+        recalcBenefitAndMargin();
+      }
+    });
+
+    
+    // --- Step gating: 1) 엑셀/PDF 업로드 → 견적가 자동 계산 2) 마진 설정 → 최종 등록 ---
+    let excelReady = false;
+    let pdfReady = false;
+
+    const excelInputEl = document.getElementById('excelFile');
+    const pdfInputEl = document.querySelector('input[name="pdfFile"]');
+    const submitBtnEl = document.getElementById('submitBtn');
+    const statusEl = document.getElementById('status');
+
+    // 마진 입력 영역은 엑셀 분석 후 활성화
+    const marginFieldIds = ["supplyCost","discountRate","extraDiscount","giftText"];
+    const marginFields = marginFieldIds.map(id => document.getElementById(id)).filter(Boolean);
+
+    function setMarginEnabled(enabled) {
+      marginFields.forEach(el => {
+        el.disabled = !enabled;
+        el.classList.toggle('bg-gray-100', !enabled);
+        el.classList.toggle('cursor-not-allowed', !enabled);
+      });
+    }
+
+    function refreshButtons() {
+      if (submitBtnEl) submitBtnEl.disabled = !(excelReady && pdfReady);
+    }
+
+    setMarginEnabled(false);
+    refreshButtons();
+
+    if (excelInputEl) {
+      excelInputEl.addEventListener('change', () => {
+        excelReady = false;
+        setMarginEnabled(false);
+        refreshButtons();
+        if (!excelInputEl.files || !excelInputEl.files[0]) return;
+        analyzeExcelAndFill(); // 자동 분석/계산
+      });
+    }
+
+    if (pdfInputEl) {
+      pdfInputEl.addEventListener('change', () => {
+        pdfReady = !!(pdfInputEl.files && pdfInputEl.files[0]);
+        refreshButtons();
+        if (pdfReady && excelReady) {
+          statusEl.innerText = "최종 등록 준비 완료! [등록] 버튼을 눌러 저장하세요.";
+        } else if (pdfReady && !excelReady) {
+          statusEl.innerText = "PDF 선택 완료. 엑셀을 선택하면 견적가가 자동 계산됩니다.";
+        }
+      });
+    }
+
+    function doSaveToDB() {
+      const formEl = document.getElementById('uploadForm');
+      submitBtnEl.disabled = true;
+      statusEl.innerText = "DB 저장 중...";
+
+      google.script.run.withSuccessHandler(function(res){
+        submitBtnEl.disabled = false;
+        if(res.success) {
+          statusEl.innerHTML = `<span class="text-green-600">✅ ${res.message}</span>`;
+          formEl.reset();
+
+          // 상태 초기화
+          excelReady = false;
+          pdfReady = false;
+          setMarginEnabled(false);
+          refreshButtons();
+
+          // 화면 값 초기화
+          g_finalEstimate = 0; g_material = 0; g_etc = 0;
+          document.getElementById("v_material").innerText = "0원";
+          document.getElementById("v_etc").innerText = "0원";
+          document.getElementById("v_final_est").innerText = "0원";
+          document.getElementById("v_final_benefit").innerText = "0원";
+          document.getElementById("v_discount_breakdown").innerText = "-";
+          document.getElementById("v_margin_amt").innerText = "0원";
+          document.getElementById("v_margin_rate").innerText = "0%";
+          document.getElementById("v_sub_24").innerText = "0원/월";
+          document.getElementById("v_sub_36").innerText = "0원/월";
+          document.getElementById("v_sub_48").innerText = "0원/월";
+          document.getElementById("v_sub_60").innerText = "0원/월";
+        } else {
+          statusEl.innerHTML = `<span class="text-red-600">❌ ${res.message}</span>`;
+        }
+      }).saveQuoteData(formEl);
+    }
+
+    // 엑셀 분석/계산만 수행하고 화면/hidden 반영 (DB 저장은 하지 않음)
+    
+    // 엑셀 분석/계산만 수행하고 화면/hidden에 반영 (엑셀 선택 즉시 자동 실행)
+    function analyzeExcelAndFill(after) {
+      const status = document.getElementById("status");
+      const excelInputEl = document.getElementById("excelFile");
+      if (!excelInputEl || !excelInputEl.files || !excelInputEl.files[0]) {
+        if (status) status.innerText = "엑셀 파일을 선택해주세요.";
+        excelReady = false;
+        refreshButtons();
+        if (typeof after === "function") after(false);
+        return;
+      }
+
+      const file = excelInputEl.files[0];
+      if (status) status.innerText = "엑셀 분석 중...";
+
+      const toStr = (v) => (v === null || v === undefined) ? "" : String(v).trim();
+
+      // 셀 값(문자/숫자/콤마 포함)을 숫자로 변환
+      const parseCellMoney = (v) => {
+        if (typeof v === "number") return isFinite(v) ? v : 0;
+        const s = toStr(v).replace(/[^0-9.\-]/g, "");
+        const n = Number(s);
+        return isFinite(n) ? n : 0;
+      };
+
+      const reader = new FileReader();
+
+      reader.onerror = () => {
+        excelReady = false;
+        refreshButtons();
+        if (status) status.innerText = "엑셀 파일을 읽을 수 없습니다. 다른 파일로 다시 시도해주세요.";
+        if (typeof after === "function") after(false);
+      };
+
+      reader.onload = (evt) => {
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const wb = XLSX.read(data, { type: "array" });
+          const sheetName = wb.SheetNames && wb.SheetNames.length ? wb.SheetNames[0] : null;
+          if (!sheetName) throw new Error("시트를 찾을 수 없습니다.");
+
+          const ws = wb.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }); // 2D array
+          if (!rows || rows.length < 2) throw new Error("엑셀 데이터가 비어있습니다.");
+
+          // 헤더 후보: 첫 20행 중에서 '설치'/'위치' 또는 금액 관련 키워드가 포함된 행을 헤더로 선택
+          const headerKeywords = /(설치|위치|금액|공급|단가|합계|총액|판매)/;
+          let headerRowIdx = 0;
+          for (let i = 0; i < Math.min(20, rows.length); i++) {
+            const joined = rows[i].map(toStr).join(" ");
+            if (headerKeywords.test(joined)) { headerRowIdx = i; break; }
+          }
+
+          const header = rows[headerRowIdx].map(toStr);
+          const body = rows.slice(headerRowIdx + 1);
+
+          // 설치위치 열 인덱스 (요청: 기본 C열 = 2)
+          const findIdx = (regexList) => {
+            for (let i = 0; i < header.length; i++) {
+              const h = header[i];
+              for (const rx of regexList) {
+                if (rx.test(h)) return i;
+              }
+            }
+            return -1;
+          };
+
+          let locIdx = findIdx([/설치\s*위치/, /설치\s*장소/, /설치.*위치/, /위치/]);
+          if (locIdx < 0) locIdx = 2; // 기본 C열
+
+          // 금액 열 인덱스 (헤더 우선 → 없으면 숫자 밀도 최대 열)
+          let amtIdx = findIdx([/금액/, /공급/, /단가/, /합계/, /총액/, /판매/]);
+          if (amtIdx < 0) {
+            // 숫자 값이 가장 많이 들어있는 열을 금액 열로 추정
+            const colCounts = [];
+            const maxCols = Math.max(...body.map(r => r.length), header.length);
+            for (let c = 0; c < maxCols; c++) {
+              let cnt = 0;
+              for (let r = 0; r < Math.min(body.length, 2000); r++) {
+                const n = parseCellMoney(body[r][c]);
+                if (n !== 0) cnt++;
+              }
+              colCounts[c] = cnt;
+            }
+            amtIdx = colCounts.indexOf(Math.max(...colCounts));
+          }
+
+          // 상세내역(JSON): 헤더 기반으로 객체화 + 금액/설치위치 확실히 포함
+          const items = [];
+          let sumMaterial = 0;
+          let sumEtc = 0;
+
+          for (let r = 0; r < body.length; r++) {
+            const row = body[r];
+            // 완전 빈 행 스킵
+            if (!row || row.every(v => toStr(v) === "")) continue;
+
+            const loc = toStr(row[locIdx]);
+            const amt = parseCellMoney(row[amtIdx]);
+
+            // 금액이 0이면 상세는 남겨도 되지만 합계에는 영향 없음
+            const isEtc = /기타/.test(loc);
+
+            if (amt > 0) {
+              if (isEtc) sumEtc += amt;
+              else sumMaterial += amt;
+            }
+
+            const obj = {};
+            for (let c = 0; c < header.length; c++) {
+              const key = header[c] || `COL_${c+1}`;
+              obj[key] = row[c];
+            }
+            obj["설치위치"] = loc;
+            obj["금액"] = amt;
+            obj["_구분"] = isEtc ? "기타" : "자재";
+            items.push(obj);
+          }
+
+          // 부가세 포함(×1.1) + 100원 단위 절삭
+          const g_material = floorTo100(sumMaterial * 1.1);
+          const g_etc = floorTo100(sumEtc * 1.1);
+          const g_finalEstimate = g_material + g_etc;
+
+          // 화면 표시
+          document.getElementById("v_material").innerText = fmt(g_material);
+          document.getElementById("v_etc").innerText = fmt(g_etc);
+          document.getElementById("v_final_est").innerText = fmt(g_finalEstimate);
+
+          // hidden 값 저장 (원 단위 숫자)
+          document.getElementById("h_material").value = String(g_material);
+          document.getElementById("h_etc").value = String(g_etc);
+          document.getElementById("h_final_est").value = String(g_finalEstimate);
+          document.getElementById("h_items").value = JSON.stringify(items);
+
+          // 엑셀 준비 완료 플래그
+          excelReady = true;
+
+          // 혜택/마진/구독료 갱신
+          recalcBenefitAndMargin();
+
+          // 버튼 상태 갱신
+          refreshButtons();
+
+          if (status) status.innerText = "엑셀 분석 완료! 마진 설정 후 PDF 등록 → [등록] 진행하세요.";
+          if (typeof after === "function") after(true);
+        } catch (err) {
+          excelReady = false;
+          refreshButtons();
+          if (status) status.innerText = "엑셀 분석 실패: " + (err && err.message ? err.message : String(err));
+          if (typeof after === "function") after(false);
+        }
+      };
+
+      // ✅ 실제 읽기 실행 (이게 없으면 자동 계산이 절대 안 됨)
+      reader.readAsArrayBuffer(file);
+    }
+
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      if (!excelInputEl || !excelInputEl.files || !excelInputEl.files[0]) {
+        alert("엑셀 파일을 먼저 선택해주세요.");
+        return;
+      }
+      if (!pdfInputEl || !pdfInputEl.files || !pdfInputEl.files[0]) {
+        alert("PDF 파일을 선택해주세요.");
+        return;
+      }
+
+      // 엑셀이 아직 분석되지 않았다면 먼저 분석 후 저장
+      if (!excelReady) {
+        analyzeExcelAndFill(() => doSaveToDB());
+        return;
+      }
+
+      // 마진/혜택/구독료는 입력 변경 시 자동 반영되므로 그대로 저장
+      doSaveToDB();
+    }
+</script>
+</body>
+</html>
