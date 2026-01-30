@@ -2,7 +2,8 @@
 // WebApp 배포용 Apps Script
 // 최종 수정: 2026-01-18 (Admin Overhaul)
 
-const PDF_FOLDER_ID = "1Ao6RDkbcXQQQ4RRQ6ymGid3cT6anwQp0"; 
+const PDF_FOLDER_ID = "1CSv8Rb7cvS2b2QGbbfcsRYSK98Zh-aXO"; 
+const SPREADSHEET_ID = "1Bxgy62sYQgstWqEl2zAWSnHIqb5Ftpu_Xzkkv7q4U6c";
 
 function delivery(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
@@ -42,7 +43,7 @@ function doPost(e) {
  */
 function updateQuoteItems(params) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('DB');
     if (!sheet) return { success: false, message: "DB 시트가 없습니다." };
 
@@ -82,7 +83,7 @@ function updateQuoteItems(params) {
  */
 function saveQuoteData(data) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     let sheet = ss.getSheetByName('DB');
     if (!sheet) {
       sheet = ss.insertSheet('DB');
@@ -140,7 +141,7 @@ function saveQuoteData(data) {
 
 function searchQuote(name, phone, statusType) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('DB');
     if (!sheet) return { success: false, message: "데이터가 없습니다." };
     
@@ -189,7 +190,7 @@ function searchQuote(name, phone, statusType) {
 // [New] Fetch All Quotes for Admin
 function getAdminQuoteList() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('DB');
     if (!sheet) return { success: true, data: [] }; // No DB yet is fine
 
@@ -234,7 +235,7 @@ function getAdminQuoteList() {
 // [New] Update Remark
 function updateQuoteRemark(params) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('DB');
     if (!sheet) return { success: false, message: "DB 시트가 없습니다." };
 

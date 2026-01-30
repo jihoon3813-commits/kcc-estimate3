@@ -566,7 +566,7 @@ const AdminPage = () => {
                     {/* Branch & Status Selection */}
                     <div className="flex justify-end gap-3 mb-4">
                         <div className="flex bg-white p-1.5 rounded-[1.2rem] shadow-sm border border-gray-100">
-                            {['가견적', '최종견적'].map(t => (
+                            {['가견적', '책임견적', '최종견적'].map(t => (
                                 <button
                                     key={t}
                                     type="button"
@@ -833,6 +833,7 @@ const AdminPage = () => {
                         >
                             <option value="all">전체 구분</option>
                             <option value="가견적">가견적</option>
+                            <option value="책임견적">책임견적</option>
                             <option value="최종견적">최종견적</option>
                         </select>
                         <button
@@ -882,7 +883,10 @@ const AdminPage = () => {
                                                 <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-600">{item.date}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-[#001a3d]">{item.branch}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap">
-                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${item.type === '최종견적' ? 'bg-[#001a3d] text-[#c5a059]' : 'bg-gray-100 text-gray-500'}`}>
+                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${item.type === '최종견적' ? 'bg-[#001a3d] text-[#c5a059]' :
+                                                            item.type === '책임견적' ? 'bg-[#c5a059] text-white' :
+                                                                'bg-gray-100 text-gray-500'
+                                                        }`}>
                                                         {item.type}
                                                     </span>
                                                 </td>
@@ -984,7 +988,10 @@ const AdminPage = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="bg-white p-3 rounded-xl border border-gray-100">
                                         <p className="text-[10px] text-gray-400 font-bold mb-1">견적 구분</p>
-                                        <p className={`text-sm font-black ${selectedQuote.type === '최종견적' ? 'text-[#001a3d]' : 'text-gray-500'}`}>{selectedQuote.type}</p>
+                                        <p className={`text-sm font-black ${selectedQuote.type === '최종견적' ? 'text-[#001a3d]' :
+                                                selectedQuote.type === '책임견적' ? 'text-[#c5a059]' :
+                                                    'text-gray-500'
+                                            }`}>{selectedQuote.type}</p>
                                     </div>
                                     <div className="bg-white p-3 rounded-xl border border-gray-100">
                                         <p className="text-[10px] text-gray-400 font-bold mb-1">고객 연락처</p>

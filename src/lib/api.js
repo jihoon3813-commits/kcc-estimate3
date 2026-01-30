@@ -1,5 +1,5 @@
 // API endpoint 설정 (GAS 웹앱 URL을 얻은 후 여기에 넣으시면 됩니다)
-export const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyU0Jd3Cl5j93kt7rHXSOC2pIIYOiKjQ2wh-E8Ir0vF33_YVk6_J0cYluilNhca1S-J/exec";
+export const GAS_API_URL = "https://script.google.com/macros/s/AKfycby_MxxNoFNbDMTISH8G4WVpxoVuFSfngw110l2matqS3i0paXPLPxXErv7Qw93eShOW/exec";
 
 const delivery = async (params) => {
     try {

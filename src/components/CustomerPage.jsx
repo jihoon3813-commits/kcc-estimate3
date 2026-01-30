@@ -131,13 +131,13 @@ const CustomerPage = () => {
 
                     <form onSubmit={handleSearch} className="space-y-4">
                         {/* Status Type Selector */}
-                        <div className="grid grid-cols-2 gap-2 mb-4 bg-black/20 p-1 rounded-xl">
-                            {['가견적', '최종견적'].map((type) => (
+                        <div className="grid grid-cols-3 gap-2 mb-4 bg-black/20 p-1 rounded-xl">
+                            {['가견적', '책임견적', '최종견적'].map((type) => (
                                 <button
                                     key={type}
                                     type="button"
                                     onClick={() => setStatusType(type)}
-                                    className={`py-2 rounded-lg text-xs font-bold transition-all ${statusType === type
+                                    className={`py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all ${statusType === type
                                         ? 'bg-[#c5a059] text-white shadow-md'
                                         : 'text-white/60 hover:text-white hover:bg-white/5'
                                         }`}
@@ -198,8 +198,11 @@ const CustomerPage = () => {
                 <div className="max-w-4xl mx-auto px-5 py-3.5 flex justify-between items-center">
                     <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/5b115594e9a66.png" alt="KCC Logo" className="h-6 object-contain" />
                     <div className="flex items-center gap-1.5">
-                        <span className="bg-red-500 text-white text-[9px] font-black px-2.5 py-1.5 rounded-md shadow-sm">
-                            {data.status || '최종견적'}
+                        <span className={`text-white text-[9px] font-black px-2.5 py-1.5 rounded-md shadow-sm ${data.status === '최종견적' ? 'bg-red-500' :
+                            data.status === '책임견적' ? 'bg-[#c5a059]' :
+                                'bg-gray-400'
+                            }`}>
+                            {data.status || '가견적'}
                         </span>
                         <div className="bg-[#f0f4f9] text-[#2c3e50] text-[9px] font-black px-2.5 py-1.5 rounded-full border border-gray-200 flex items-center gap-1">
                             <Calendar size={10} />
@@ -227,7 +230,10 @@ const CustomerPage = () => {
                                 <p className="text-[9px] font-black text-[#c5a059] uppercase tracking-widest mb-1.5">Customer details</p>
                                 <h3 className="text-2xl font-black text-[#001a3d] leading-none">{data.name} 고객님</h3>
                             </div>
-                            <div className={`px-4 py-2 rounded-xl text-[10px] font-black shadow-sm ${data.status === '최종견적' ? 'bg-[#001a3d] text-[#c5a059] border border-[#c5a059]/30' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
+                            <div className={`px-4 py-2 rounded-xl text-[10px] font-black shadow-sm ${data.status === '최종견적' ? 'bg-[#001a3d] text-[#c5a059] border border-[#c5a059]/30' :
+                                data.status === '책임견적' ? 'bg-[#c5a059] text-white shadow-md' :
+                                    'bg-gray-100 text-gray-400 border border-gray-200'
+                                }`}>
                                 {data.status || '가견적'}
                             </div>
                         </div>
@@ -249,6 +255,37 @@ const CustomerPage = () => {
                         </div>
                     </div>
                 </div>
+
+                {data.status === '책임견적' && (
+                    <div className="bg-gradient-to-r from-[#001a3d] to-[#012a5e] p-6 md:p-8 rounded-[2rem] shadow-xl border-l-[6px] border-[#c5a059] text-white space-y-4 animate-in fade-in slide-in-from-top-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-[#c5a059] p-2 rounded-xl text-[#001a3d]">
+                                <ShieldCheck size={24} />
+                            </div>
+                            <h4 className="text-lg font-black tracking-tight">KCC글라스 공식 <span className="text-[#c5a059]">책임견적</span> 안내</h4>
+                        </div>
+                        <div className="space-y-3">
+                            <p className="text-sm font-bold text-white/90 leading-relaxed break-keep">
+                                본 견적서는 실측 후에도 금액 변동에 대한 고객 부담을 최소화하기 위해 <span className="text-[#c5a059] underline underline-offset-4 font-black">책임 견적 제도</span>를 적용합니다.
+                            </p>
+                            <div className="bg-white/10 p-4 rounded-2xl border border-white/5 space-y-2">
+                                <p className="text-[11px] font-black text-[#c5a059] uppercase tracking-widest">책임견적 제도란?</p>
+                                <p className="text-[13px] font-bold text-white/80 leading-relaxed break-keep">
+                                    가견적과 동일 사양이면, 실측 후 창 사이즈가 커져도 <span className="text-white font-black underline underline-offset-4 decoration-[#c5a059]">추가금은 없고</span>, 작아지면 그만큼 <span className="text-white font-black underline underline-offset-4 decoration-[#c5a059]">자동으로 할인</span>됩니다. 금액이 달라지는 경우는 창을 추가하거나, 사양·옵션을 바꾸실 때 뿐입니다.
+                                </p>
+                            </div>
+                            <p className="text-xs font-bold text-white/60 text-center pt-1 italic break-keep leading-relaxed">
+                                지금 책임견적으로 확정하시면,<br className="md:hidden" /> 빠른 실측 및 시공이 가능합니다.
+                            </p>
+                            <button
+                                onClick={() => setModalType('precautions')}
+                                className="w-full mt-2 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[11px] font-black text-[#c5a059] border border-[#c5a059]/30 transition-all flex items-center justify-center gap-2"
+                            >
+                                <X size={14} className="rotate-45" /> 책임 견적 적용 제외 사항 확인하기
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="space-y-6">
                     <h3 className="text-lg font-black text-[#001a3d] flex items-center gap-2 px-1">
@@ -653,8 +690,12 @@ const CustomerPage = () => {
                     >
                         <header className="p-6 md:p-10 border-b border-gray-50 flex justify-between items-center bg-gray-50/10 shrink-0">
                             <div className="space-y-2">
-                                <span className="bg-[#c5a059] text-white px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg">Membership Choice</span>
-                                <h3 className="text-lg md:text-xl font-black text-[#001a3d] leading-none tracking-tighter mt-1">옵션 타입 {modalType} 가전</h3>
+                                <span className="bg-[#c5a059] text-white px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg">
+                                    {modalType === 'precautions' ? 'Important Notice' : 'Membership Choice'}
+                                </span>
+                                <h3 className="text-lg md:text-xl font-black text-[#001a3d] leading-tight tracking-tighter mt-1 break-keep">
+                                    {modalType === 'precautions' ? '책임 견적 적용 제외 및 유의사항' : `옵션 타입 ${modalType} 가전`}
+                                </h3>
                             </div>
                             <button onClick={() => setModalType(null)} className="w-12 h-12 rounded-2xl bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center text-[#2c3e50] shadow-sm active:scale-95">
                                 <X size={26} />
@@ -663,47 +704,79 @@ const CustomerPage = () => {
 
                         {/* Scrollable Area */}
                         <div className="flex-1 overflow-y-auto p-5 md:p-8 bg-gray-50/5 min-h-0 relative" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                {appliances?.[modalType]?.map((item, idx) => (
-                                    <div key={idx} className="bg-white rounded-[2rem] border border-gray-100 p-5 flex flex-col gap-5 shadow-xl shadow-gray-100/50 group hover:border-[#c5a059]/30 transition-all">
-                                        <div className="w-full aspect-video bg-white rounded-3xl overflow-hidden border-2 border-gray-50 relative shrink-0">
-                                            <img src={item.img} alt={item.name} className="w-full h-full object-contain p-4 transition-transform duration-700 group-hover:scale-110" />
-                                            <div className="absolute top-2 right-2 bg-[#001a3d] text-[#c5a059] text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Premium</div>
-                                        </div>
-                                        <div className="space-y-4 px-1 flex-1 flex flex-col">
-                                            <div className="flex-1">
-                                                <span className="text-[#c5a059] text-[9px] font-black uppercase tracking-widest bg-[#c5a059]/10 px-2.5 py-1 rounded-lg mb-2 inline-block">{item.cat}</span>
-                                                <h4 className="text-base font-black text-[#2c3e50] leading-tight line-clamp-2 h-10 tracking-tight">{item.name}</h4>
-                                                <p className="text-[10px] text-gray-400 font-black mt-2 font-outfit uppercase tracking-widest opacity-80">{item.model}</p>
-                                            </div>
-
-                                            {/* Link Logic: Render <a> for valid links, <button> for placeholders */}
-                                            {item.link && item.link !== '#' && item.link.trim() !== '' ? (
-                                                <a
-                                                    href={item.link}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="bg-[#001a3d] text-white font-black py-2.5 px-4 text-[11px] flex items-center justify-center gap-2 w-full rounded-xl transition-all tracking-tight hover:bg-[#c5a059] hover:text-[#001a3d] shadow-lg shadow-black/10 active:scale-95 cursor-pointer block text-center no-underline"
-                                                >
-                                                    제품 자세히 보기 <ExternalLink size={13} />
-                                                </a>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        alert("상세 페이지 준비 중입니다.");
-                                                    }}
-                                                    className="bg-[#001a3d] text-white font-black py-2.5 px-4 text-[11px] flex items-center justify-center gap-2 w-full rounded-xl transition-all tracking-tight hover:bg-[#c5a059] hover:text-[#001a3d] shadow-lg shadow-black/10 active:scale-95 cursor-pointer"
-                                                >
-                                                    제품 자세히 보기 <ExternalLink size={13} />
-                                                </button>
-                                            )}
-                                        </div>
+                            {modalType === 'precautions' ? (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                                    <div className="bg-orange-50 border border-orange-100 p-6 rounded-3xl">
+                                        <p className="text-orange-900 text-[13px] font-bold leading-relaxed break-keep">
+                                            아래의 경우에는 책임 견적 적용 대상에서 제외되며, 실측 후 최종 견적 금액이 조정될 수 있습니다.
+                                        </p>
                                     </div>
-                                ))}
-                            </div>
+
+                                    <div className="space-y-4">
+                                        {[
+                                            "창호 개수 또는 설치 위치 변경",
+                                            "제품군 또는 사양 변경 (예: 단창 ↔ 이중창, 등급 상향 등)",
+                                            "옵션 및 부자재 추가 (특수유리, 보강자재 등)",
+                                            "고객 요청에 의한 구조·구성 변경",
+                                            "현장 여건상 시공 불가 또는 시공 방식 변경이 필요한 경우 (이 경우 반드시 사전에 고객님께 안내 드립니다.)"
+                                        ].map((text, idx) => (
+                                            <div key={idx} className="flex gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm transition-transform active:scale-[0.99]">
+                                                <div className="w-6 h-6 bg-[#c5a059]/10 text-[#c5a059] rounded-lg flex items-center justify-center text-xs font-black shrink-0">
+                                                    {idx + 1}
+                                                </div>
+                                                <p className="text-sm font-bold text-[#2c3e50] leading-snug break-keep">{text}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="bg-[#f8fafc] p-6 rounded-3xl border border-gray-100 mt-4">
+                                        <p className="text-[11px] text-gray-400 font-bold leading-relaxed text-center">
+                                            ※ 실측 및 현장 상담 과정에서 사양 변경이 발생할 경우 투명하게 재안내 드립니다.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    {appliances?.[modalType]?.map((item, idx) => (
+                                        <div key={idx} className="bg-white rounded-[2rem] border border-gray-100 p-5 flex flex-col gap-5 shadow-xl shadow-gray-100/50 group hover:border-[#c5a059]/30 transition-all">
+                                            <div className="w-full aspect-video bg-white rounded-3xl overflow-hidden border-2 border-gray-50 relative shrink-0">
+                                                <img src={item.img} alt={item.name} className="w-full h-full object-contain p-4 transition-transform duration-700 group-hover:scale-110" />
+                                                <div className="absolute top-2 right-2 bg-[#001a3d] text-[#c5a059] text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Premium</div>
+                                            </div>
+                                            <div className="space-y-4 px-1 flex-1 flex flex-col">
+                                                <div className="flex-1">
+                                                    <span className="text-[#c5a059] text-[9px] font-black uppercase tracking-widest bg-[#c5a059]/10 px-2.5 py-1 rounded-lg mb-2 inline-block">{item.cat}</span>
+                                                    <h4 className="text-base font-black text-[#2c3e50] leading-tight line-clamp-2 h-10 tracking-tight">{item.name}</h4>
+                                                    <p className="text-[10px] text-gray-400 font-black mt-2 font-outfit uppercase tracking-widest opacity-80">{item.model}</p>
+                                                </div>
+
+                                                {item.link && item.link !== '#' && item.link.trim() !== '' ? (
+                                                    <a
+                                                        href={item.link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="bg-[#001a3d] text-white font-black py-2.5 px-4 text-[11px] flex items-center justify-center gap-2 w-full rounded-xl transition-all tracking-tight hover:bg-[#c5a059] hover:text-[#001a3d] shadow-lg shadow-black/10 active:scale-95 cursor-pointer block text-center no-underline"
+                                                    >
+                                                        제품 자세히 보기 <ExternalLink size={13} />
+                                                    </a>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            alert("상세 페이지 준비 중입니다.");
+                                                        }}
+                                                        className="bg-[#001a3d] text-white font-black py-2.5 px-4 text-[11px] flex items-center justify-center gap-2 w-full rounded-xl transition-all tracking-tight hover:bg-[#c5a059] hover:text-[#001a3d] shadow-lg shadow-black/10 active:scale-95 cursor-pointer"
+                                                    >
+                                                        제품 자세히 보기 <ExternalLink size={13} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
 
