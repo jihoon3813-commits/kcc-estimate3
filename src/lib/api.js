@@ -1,18 +1,22 @@
 import { ConvexReactClient } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
+const convexUrl = import.meta.env.VITE_CONVEX_URL;
+console.log("Initializing Convex client with URL:", convexUrl);
+const convex = new ConvexReactClient(convexUrl);
 
 /**
  * 견적 데이터 저장
  */
 export const saveQuote = async (data, file) => {
-    let storageId = null;
+    let storageId = undefined;
 
     if (file) {
         try {
+            console.log("Starting PDF upload...");
             // 1. Get upload URL
             const postUrl = await convex.mutation(api.quotes.generateUploadUrl);
+            console.log("Got upload URL:", postUrl);
 
             // 2. Upload file
             const result = await fetch(postUrl, {
@@ -25,9 +29,9 @@ export const saveQuote = async (data, file) => {
 
             const { storageId: sid } = await result.json();
             storageId = sid;
+            console.log("File uploaded successfully, storageId:", storageId);
         } catch (error) {
             console.error("PDF Upload Error:", error);
-            // We'll continue saving data even if PDF fails, or we could bail.
         }
     }
 
@@ -50,13 +54,15 @@ export const saveQuote = async (data, file) => {
         sub48: Number(data.subs[48]) || 0,
         sub60: Number(data.subs[60]) || 0,
         items: JSON.stringify(data.items || []),
-        storageId,
+        storageId: storageId || undefined,
         pdfUrl: "",
         remark: ""
     };
 
     try {
+        console.log("Saving quote to Convex...", params);
         const id = await convex.mutation(api.quotes.saveQuote, params);
+        console.log("Quote saved successfully, ID:", id);
         return { success: true, id };
     } catch (error) {
         console.error("Convex Save Error:", error);
