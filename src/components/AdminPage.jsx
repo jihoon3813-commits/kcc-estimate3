@@ -354,9 +354,7 @@ const AdminPage = () => {
         try {
             const { updateQuoteRemark } = await import('../lib/api');
             await updateQuoteRemark({
-                date: item.date,
-                name: item.name,
-                phone: item.phone, // Clean phone is handled in GAS usually, but passing specific phone helps
+                id: item.id,
                 remark: newRemark
             });
         } catch (e) {
@@ -454,9 +452,7 @@ const AdminPage = () => {
 
                     // Update
                     const updateRes = await updateQuoteItems({
-                        date: detail.date,
-                        name: detail.name,
-                        phone: detail.phone,
+                        id: detail.id || summary.id,
                         items: newItems
                     });
 
@@ -884,8 +880,8 @@ const AdminPage = () => {
                                                 <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-[#001a3d]">{item.branch}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap">
                                                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${item.type === '최종견적' ? 'bg-[#001a3d] text-[#c5a059]' :
-                                                            item.type === '책임견적' ? 'bg-[#c5a059] text-white' :
-                                                                'bg-gray-100 text-gray-500'
+                                                        item.type === '책임견적' ? 'bg-[#c5a059] text-white' :
+                                                            'bg-gray-100 text-gray-500'
                                                         }`}>
                                                         {item.type}
                                                     </span>
@@ -989,8 +985,8 @@ const AdminPage = () => {
                                     <div className="bg-white p-3 rounded-xl border border-gray-100">
                                         <p className="text-[10px] text-gray-400 font-bold mb-1">견적 구분</p>
                                         <p className={`text-sm font-black ${selectedQuote.type === '최종견적' ? 'text-[#001a3d]' :
-                                                selectedQuote.type === '책임견적' ? 'text-[#c5a059]' :
-                                                    'text-gray-500'
+                                            selectedQuote.type === '책임견적' ? 'text-[#c5a059]' :
+                                                'text-gray-500'
                                             }`}>{selectedQuote.type}</p>
                                     </div>
                                     <div className="bg-white p-3 rounded-xl border border-gray-100">

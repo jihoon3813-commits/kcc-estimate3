@@ -14,6 +14,8 @@ function doGet(e) {
   const action = e.parameter.action;
   if (action === 'search') {
     return delivery(searchQuote(e.parameter.name, e.parameter.phone, e.parameter.statusType));
+  } else if (action === 'get_config') {
+    return delivery(getAppConfig());
   }
   return delivery({ success: false, message: "Invalid action" });
 }
@@ -31,6 +33,8 @@ function doPost(e) {
       return delivery(updateQuoteRemark(params));
     } else if (action === 'update_items') {
       return delivery(updateQuoteItems(params));
+    } else if (action === 'get_config') {
+      return delivery(getAppConfig());
     }
     return delivery({ success: false, message: "Invalid action: " + action });
   } catch (err) {
@@ -184,6 +188,15 @@ function searchQuote(name, phone, statusType) {
 
   } catch (err) {
     return { success: false, message: err.toString() };
+  }
+}
+
+function getAppConfig() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    return { success: true, config: fetchConfig(ss) };
+  } catch (e) {
+    return { success: false, message: e.toString() };
   }
 }
 

@@ -1,80 +1,94 @@
-// API endpoint 설정 (GAS 웹앱 URL을 얻은 후 여기에 넣으시면 됩니다)
-export const GAS_API_URL = "https://script.google.com/macros/s/AKfycby_MxxNoFNbDMTISH8G4WVpxoVuFSfngw110l2matqS3i0paXPLPxXErv7Qw93eShOW/exec";
+import { ConvexReactClient } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
-const delivery = async (params) => {
-    try {
-        console.log("API 전송 시작:", params);
-
-        // GAS와의 CORS 문제를 방지하기 위해 'text/plain'을 명시합니다.
-        // 이렇게 하면 OPTIONS(preflight) 요청을 보내지 않아 GAS에서 정상 수신 가능합니다.
-        const response = await fetch(GAS_API_URL, {
-            method: "POST",
-            mode: "cors", // CORS 허용
-            redirect: "follow", // 리다이렉트 자동 추적
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8",
-            },
-            body: JSON.stringify(params),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP 오류! 상태코드: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log("API 응답 완료:", result);
-        return result;
-    } catch (error) {
-        console.error("API Error Detail:", error);
-        return { success: false, message: "서버 연결에 실패했습니다: " + error.message };
-    }
-};
+const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
 
 /**
  * 견적 데이터 저장
  */
-/**
- * 견적 데이터 저장 (PDF 파일 포함 가능)
- */
 export const saveQuote = async (data, file) => {
-    let filePayload = {};
+    let storageId = null;
 
     if (file) {
         try {
-            const base64Data = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]); // Remove "data:application/pdf;base64,"
-                reader.onerror = error => reject(error);
+            // 1. Get upload URL
+            const postUrl = await convex.mutation(api.quotes.generateUploadUrl);
+
+            // 2. Upload file
+            const result = await fetch(postUrl, {
+                method: "POST",
+                headers: { "Content-Type": file.type },
+                body: file,
             });
 
-            filePayload = {
-                fileData: base64Data,
-                fileName: file.name,
-                mimeType: file.type
-            };
+            if (!result.ok) throw new Error("File upload failed");
+
+            const { storageId: sid } = await result.json();
+            storageId = sid;
         } catch (error) {
-            console.error("File Conversion Error:", error);
-            // Continue without file if error? Or fail?
-            // Let's log it but try to save the data at least.
+            console.error("PDF Upload Error:", error);
+            // We'll continue saving data even if PDF fails, or we could bail.
         }
     }
 
-    return await delivery({ action: "save", ...data, ...filePayload });
+    const params = {
+        date: new Date().toISOString().split('T')[0],
+        branch: data.branch || "",
+        type: data.statusType || "가견적",
+        name: data.customerName || "",
+        phone: data.customerPhone || "",
+        address: data.address || "",
+        kccPrice: Number(data.totalSum) || 0,
+        finalQuote: Number(data.finalQuote) || 0,
+        finalBenefit: Number(data.finalBenefit) || 0,
+        discountRate: Number(data.discountRate) || 0,
+        extraDiscount: Number(data.extraDiscount) || 0,
+        marginAmt: Number(data.marginAmount) || 0,
+        marginRate: Number(data.marginRate) || 0,
+        sub24: Number(data.subs[24]) || 0,
+        sub36: Number(data.subs[36]) || 0,
+        sub48: Number(data.subs[48]) || 0,
+        sub60: Number(data.subs[60]) || 0,
+        items: JSON.stringify(data.items || []),
+        storageId,
+        pdfUrl: "",
+        remark: ""
+    };
+
+    try {
+        const id = await convex.mutation(api.quotes.saveQuote, params);
+        return { success: true, id };
+    } catch (error) {
+        console.error("Convex Save Error:", error);
+        return { success: false, message: error.message };
+    }
 };
 
 export const getAdminQuoteList = async () => {
-    return await delivery({ action: 'admin_list' });
+    try {
+        const data = await convex.query(api.quotes.listQuotes);
+        return { success: true, data: data.map(q => ({ ...q, id: q._id })) };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
 };
 
 export const updateQuoteRemark = async (params) => {
-    // params: { date, name, phone, remark }
-    return await delivery({ action: 'update_remark', ...params });
+    try {
+        await convex.mutation(api.quotes.updateRemark, { id: params.id, remark: params.remark });
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
 };
 
 export const updateQuoteItems = async (params) => {
-    // params: { date, name, phone, items }
-    return await delivery({ action: 'update_items', ...params });
+    try {
+        await convex.mutation(api.quotes.updateItems, { id: params.id, items: JSON.stringify(params.items) });
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
 };
 
 /**
@@ -82,18 +96,39 @@ export const updateQuoteItems = async (params) => {
  */
 export const searchQuote = async (name, phone, statusType) => {
     try {
-        const queryParams = new URLSearchParams({
-            action: "search",
-            name: name,
-            phone: phone,
-            statusType: statusType || ""
+        const quote = await convex.query(api.quotes.searchQuote, { name, phone, statusType });
+        if (!quote) return { success: false, message: "일치하는 견적 정보를 찾을 수 없습니다." };
+
+        const [appliances, banners] = await Promise.all([
+            convex.query(api.config.listAppliances),
+            convex.query(api.config.listBanners)
+        ]);
+
+        const formattedAppliances = { A: [], B: [] };
+        appliances.forEach(app => {
+            formattedAppliances[app.type].push({
+                type: app.type,
+                cat: app.category,
+                img: app.img,
+                name: app.name,
+                model: app.model,
+                link: app.link
+            });
         });
-        const response = await fetch(`${GAS_API_URL}?${queryParams.toString()}`, {
-            method: "GET",
-        });
-        return await response.json();
+
+        return {
+            success: true,
+            data: {
+                ...quote,
+                subs: { 24: quote.sub24, 36: quote.sub36, 48: quote.sub48, 60: quote.sub60 },
+                items: JSON.parse(quote.items || "[]")
+            },
+            config: {
+                appliances: formattedAppliances,
+                banners: banners
+            }
+        };
     } catch (error) {
-        console.error("Search API Error:", error);
-        return { success: false, message: "서버 연결에 실패했습니다." };
+        return { success: false, message: error.message };
     }
 };
