@@ -44,6 +44,7 @@ const AdminPage = () => {
     const [filterType, setFilterType] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedQuote, setSelectedQuote] = useState(null);
+    const [sortOrder, setSortOrder] = useState('desc'); // 'desc' | 'asc'
 
     useEffect(() => {
         console.log("AdminPage Mounted and Ready");
@@ -340,9 +341,24 @@ const AdminPage = () => {
             });
         }
 
+        // 5. Sorting
+        temp.sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+
+            if (dateA !== dateB) {
+                return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+            }
+
+            // Secondary sort: ID/CreationTime (if available)
+            const idA = a._creationTime || a.id || 0;
+            const idB = b._creationTime || b.id || 0;
+            return sortOrder === 'desc' ? idB - idA : idA - idB;
+        });
+
         setFilteredList(temp);
 
-    }, [quoteList, searchTerm, filterBranch, filterType, filterDate]);
+    }, [quoteList, searchTerm, filterBranch, filterType, filterDate, sortOrder]);
 
     // Remark Update
     const handleRemarkChange = async (item, newRemark) => {
@@ -831,6 +847,16 @@ const AdminPage = () => {
                             <option value="가견적">가견적</option>
                             <option value="책임견적">책임견적</option>
                             <option value="최종견적">최종견적</option>
+                        </select>
+
+                        {/* Sort Order */}
+                        <select
+                            className="bg-gray-50 px-4 py-3 rounded-xl text-sm font-black text-[#001a3d] border-none cursor-pointer focus:ring-2 focus:ring-[#c5a059]/50"
+                            value={sortOrder}
+                            onChange={(e) => setSortOrder(e.target.value)}
+                        >
+                            <option value="desc">최신순</option>
+                            <option value="asc">과거순</option>
                         </select>
                         <button
                             onClick={fetchList}

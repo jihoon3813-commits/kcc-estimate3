@@ -208,7 +208,10 @@ function getAdminQuoteList() {
     if (!sheet) return { success: true, data: [] }; // No DB yet is fine
 
     const data = sheet.getDataRange().getValues();
+    const headers = data[0];
     const list = [];
+    
+    console.log("Sheet Headers:", headers);
     
     // Header is row 0. Iterate from 1.
     // Use reverse order for latest first? Or just normal order. Normal is fine for table.
@@ -240,7 +243,7 @@ function getAdminQuoteList() {
        });
     }
 
-    return { success: true, data: list };
+    return { success: true, data: list, headers: headers };
   } catch (e) {
      return { success: false, message: e.toString() };
   }

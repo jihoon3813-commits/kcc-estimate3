@@ -19,7 +19,11 @@ export const importFromGas = action({
         const quoteResult = await quoteResponse.json();
 
         if (quoteResult.success) {
+            console.log("GAS Headers:", quoteResult.headers);
             console.log(`Fetched ${quoteResult.data.length} quotes.`);
+            if (quoteResult.data.length > 0) {
+                console.log("Sample Data Row 0:", quoteResult.data[0]);
+            }
             for (const q of quoteResult.data) {
                 await ctx.runMutation(internal.quotes.internalSaveQuote, {
                     date: q.date,
