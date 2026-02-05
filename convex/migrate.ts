@@ -2,11 +2,14 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycby_MxxNoFNbDMTISH8G4WVpxoVuFSfngw110l2matqS3i0paXPLPxXErv7Qw93eShOW/exec";
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwGYfWWhlCAGUJ5DdlMq--SXwSDJ2N6Fwvsr6q8chFEOe7MbDsSLTBQbWDF9RXy8g6d/exec";
 
 export const importFromGas = action({
     handler: async (ctx) => {
         console.log("Starting migration from GAS...");
+
+        // 0. Clear existing quotes
+        await ctx.runMutation(internal.quotes.clearAllQuotes, {});
 
         // 1. Fetch Admin List (Quotes)
         const quoteResponse = await fetch(GAS_API_URL, {

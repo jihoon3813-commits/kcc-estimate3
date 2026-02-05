@@ -234,6 +234,7 @@ function getAdminQuoteList() {
          sub36: row[14],
          sub48: row[15],
          sub60: row[16],
+         items: row[17], // Column R is Index 17
          pdfUrl: row[18],
          remark: row[19] || "" // Column T is Index 19
        });

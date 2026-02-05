@@ -88,6 +88,16 @@ export const generateUploadUrl = mutation({
     },
 });
 
+export const clearAllQuotes = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const quotes = await ctx.db.query("quotes").collect();
+        for (const q of quotes) {
+            await ctx.db.delete(q._id);
+        }
+    },
+});
+
 // Queries
 export const listQuotes = query({
     handler: async (ctx) => {
