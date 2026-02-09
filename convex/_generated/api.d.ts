@@ -9,8 +9,10 @@
  */
 
 import type * as config from "../config.js";
+import type * as debug from "../debug.js";
 import type * as migrate from "../migrate.js";
 import type * as quotes from "../quotes.js";
+import type * as sync from "../sync.js";
 
 import type {
   ApiFromModules,
@@ -20,8 +22,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   config: typeof config;
+  debug: typeof debug;
   migrate: typeof migrate;
   quotes: typeof quotes;
+  sync: typeof sync;
 }>;
 
 /**

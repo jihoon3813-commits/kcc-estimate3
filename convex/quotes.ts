@@ -27,7 +27,8 @@ export const saveQuote = mutation({
         remark: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const quoteId = await ctx.db.insert("quotes", args);
+        const normalizedName = args.name.normalize("NFC");
+        const quoteId = await ctx.db.insert("quotes", { ...args, name: normalizedName });
         return quoteId;
     },
 });
@@ -56,7 +57,8 @@ export const internalSaveQuote = internalMutation({
         remark: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const quoteId = await ctx.db.insert("quotes", args);
+        const normalizedName = args.name.normalize("NFC");
+        const quoteId = await ctx.db.insert("quotes", { ...args, name: normalizedName });
         return quoteId;
     },
 });
@@ -118,11 +120,13 @@ export const searchQuote = query({
         statusType: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const normalizedName = args.name.normalize("NFC");
         let quotes = await ctx.db
             .query("quotes")
             .withIndex("by_name_phone", (q) =>
-                q.eq("name", args.name).eq("phone", args.phone)
+                q.eq("name", normalizedName).eq("phone", args.phone)
             )
+            .order("desc")
             .collect();
 
         if (args.statusType) {

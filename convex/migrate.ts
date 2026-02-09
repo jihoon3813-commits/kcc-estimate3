@@ -20,11 +20,10 @@ export const importFromGas = action({
 
         if (quoteResult.success) {
             console.log("GAS Headers:", quoteResult.headers);
-            console.log(`Fetched ${quoteResult.data.length} quotes.`);
-            if (quoteResult.data.length > 0) {
-                console.log("Sample Data Row 0:", quoteResult.data[0]);
-            }
-            for (const q of quoteResult.data) {
+            const sortedData = [...quoteResult.data].reverse(); // 과거 -> 최신 순으로 변경
+            console.log(`Fetched ${sortedData.length} quotes. Importing in chronological order...`);
+
+            for (const q of sortedData) {
                 await ctx.runMutation(internal.quotes.internalSaveQuote, {
                     date: q.date,
                     branch: q.branch,

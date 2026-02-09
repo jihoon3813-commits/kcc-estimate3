@@ -282,12 +282,16 @@ const AdminPage = () => {
 
         // 1. Search (Name, Phone, Address)
         if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            temp = temp.filter(item =>
-                (item.name && item.name.toLowerCase().includes(lower)) ||
-                (item.phone && item.phone.includes(lower)) ||
-                (item.address && item.address.toLowerCase().includes(lower))
-            );
+            const normalizedSearch = searchTerm.trim().normalize('NFC').toLowerCase();
+            temp = temp.filter(item => {
+                const name = (item.name || '').normalize('NFC').toLowerCase();
+                const phone = (item.phone || '').toLowerCase();
+                const address = (item.address || '').normalize('NFC').toLowerCase();
+
+                return name.includes(normalizedSearch) ||
+                    phone.includes(normalizedSearch) ||
+                    address.includes(normalizedSearch);
+            });
         }
 
         // 2. Branch
