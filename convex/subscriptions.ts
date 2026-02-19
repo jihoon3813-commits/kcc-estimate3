@@ -1,6 +1,6 @@
-
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 export const submitApplication = mutation({
     args: {
@@ -29,6 +29,16 @@ export const submitApplication = mutation({
             status: "pending",
             createdAt: new Date().toISOString(),
         });
+
+        // Send Discord Notification
+        await ctx.scheduler.runAfter(0, internal.discord.sendNotification, {
+            type: 'subscription',
+            name: args.name,
+            phone: args.phone,
+            selectedAmount: `${args.selectedAmount}개월 약정`,
+            address: args.address,
+        });
+
         return id;
     },
 });

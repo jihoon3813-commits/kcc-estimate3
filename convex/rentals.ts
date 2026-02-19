@@ -1,6 +1,6 @@
-
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 export const generateUploadUrl = mutation(async (ctx) => {
     return await ctx.storage.generateUploadUrl();
@@ -33,6 +33,16 @@ export const submitApplication = mutation({
             status: "pending",
             createdAt: new Date().toISOString(),
         });
+
+        // Send Discord Notification
+        await ctx.scheduler.runAfter(0, internal.discord.sendNotification, {
+            type: 'rental',
+            name: args.name,
+            phone: args.phone,
+            selectedAmount: `${args.selectedAmount}만원`,
+            address: args.address,
+        });
+
         return id;
     },
 });

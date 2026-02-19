@@ -1138,64 +1138,177 @@ const CustomerPage = () => {
 
                             {/* STEP 4: Agreements */}
                             {rentalStep === 4 && (
-                                <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 pb-12">
                                     <div className="space-y-2">
                                         <h3 className="text-2xl font-black text-[#001a3d]">마지막으로<br />동의가 필요해요</h3>
-                                        <p className="text-gray-500 text-sm font-bold">신용조회를 위해 약관 확인이 필요합니다.</p>
+                                        <p className="text-gray-500 text-sm font-bold">
+                                            {applicationType === 'subscription' ? '신용조회를 위해 약관 확인이 필요합니다.' : '신용조회를 위한 약관 동의가 필요합니다.'}
+                                        </p>
                                     </div>
 
-                                    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-8">
-                                        <div className="flex flex-col items-center justify-center text-center space-y-6 py-8">
-                                            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shadow-inner">
-                                                <ShieldCheck size={32} />
-                                            </div>
-                                            <div className="space-y-4">
-                                                <p className="text-sm font-bold text-gray-600 leading-relaxed text-center">
-                                                    - 아래 링크를 클릭해서 모바일 신용조회 동의를 진행해주세요.<br />
-                                                    - 아래 링크 클릭 시 앞에 입력한 내용은 자동 저장 됩니다.<br />
-                                                    - 동의 완료 후 별도 신용조회 후 담당자가 안내드릴 예정입니다.
-                                                </p>
-                                                <button
-                                                    onClick={async () => {
-                                                        if (window.confirm(`${applicationType === 'subscription' ? '구독' : '렌탈'} 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.`)) {
-                                                            setIsSubmitting(true);
-                                                            const res = applicationType === 'subscription'
-                                                                ? await submitSubscriptionApplication(data, rentalForm)
-                                                                : await submitRentalApplication(data, rentalForm);
-                                                            setIsSubmitting(false);
+                                    {applicationType === 'subscription' ? (
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-8">
+                                            <div className="flex flex-col items-center justify-center text-center space-y-6 py-8">
+                                                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shadow-inner">
+                                                    <ShieldCheck size={32} />
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <p className="text-sm font-bold text-gray-600 leading-relaxed text-center">
+                                                        - 아래 링크를 클릭해서 모바일 신용조회 동의를 진행해주세요.<br />
+                                                        - 아래 링크 클릭 시 앞에 입력한 내용은 자동 저장 됩니다.<br />
+                                                        - 동의 완료 후 별도 신용조회 후 담당자가 안내드릴 예정입니다.
+                                                    </p>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (window.confirm(`${applicationType === 'subscription' ? '구독' : '렌탈'} 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.`)) {
+                                                                setIsSubmitting(true);
+                                                                const res = applicationType === 'subscription'
+                                                                    ? await submitSubscriptionApplication(data, rentalForm)
+                                                                    : await submitRentalApplication(data, rentalForm);
+                                                                setIsSubmitting(false);
 
-                                                            if (res.success) {
-                                                                const successMsg = applicationType === 'subscription'
-                                                                    ? `구독 신청이 정상적으로 저장되었습니다.\n이어서 열리는 페이지를 통해 모바일 신용조회 동의를 반드시 진행해주세요.\n신용조회 동의 확인 후 담당자가 별도 연락 드릴 예정입니다.(1~2일 소요)`
-                                                                    : `렌탈 신청이 정상적으로 완료되었습니다.\n신청 가능 여부를 확인한 후 담당자를 통해 연락드리겠습니다.\n감사합니다.(1~2일 소요)`;
-                                                                alert(successMsg);
-                                                                window.open("https://m.hankookcapital.co.kr/ib20/mnu/HKMUCR010101", "_blank");
-                                                                setIsRentalMode(false);
-                                                                setApplicationType(null);
-                                                                setRentalStep(1);
-                                                            } else {
-                                                                alert("신청 중 오류가 발생했습니다: " + res.message);
+                                                                if (res.success) {
+                                                                    const successMsg = applicationType === 'subscription'
+                                                                        ? `구독 신청이 정상적으로 저장되었습니다.\n이어서 열리는 페이지를 통해 모바일 신용조회 동의를 반드시 진행해주세요.\n신용조회 동의 확인 후 담당자가 별도 연락 드릴 예정입니다.(1~2일 소요)`
+                                                                        : `렌탈 신청이 정상적으로 완료되었습니다.\n신청 가능 여부를 확인한 후 담당자를 통해 연락드리겠습니다.\n감사합니다.(1~2일 소요)`;
+                                                                    alert(successMsg);
+                                                                    window.open("https://m.hankookcapital.co.kr/ib20/mnu/HKMUCR010101", "_blank");
+                                                                    setIsRentalMode(false);
+                                                                    setApplicationType(null);
+                                                                    setRentalStep(1);
+                                                                } else {
+                                                                    alert("신청 중 오류가 발생했습니다: " + res.message);
+                                                                }
                                                             }
-                                                        }
-                                                    }}
-                                                    className="inline-flex items-center gap-2 bg-[#001a3d] text-white px-8 py-4 rounded-2xl font-black text-base hover:bg-blue-900 transition-all shadow-lg active:scale-95 text-center leading-tight"
-                                                >
-                                                    {isSubmitting ? <Loader2 className="animate-spin" /> : (
-                                                        <>
-                                                            지금까지 내용 저장하고<br />
-                                                            모바일 신용조회 동의하기 <ExternalLink size={18} />
-                                                        </>
-                                                    )}
-                                                </button>
+                                                        }}
+                                                        className="inline-flex items-center gap-2 bg-[#001a3d] text-white px-8 py-4 rounded-2xl font-black text-base hover:bg-blue-900 transition-all shadow-lg active:scale-95 text-center leading-tight"
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="animate-spin" /> : (
+                                                            <>
+                                                                지금까지 내용 저장하고<br />
+                                                                모바일 신용조회 동의하기 <ExternalLink size={18} />
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            {/* All Agreement Checkbox */}
+                                            <button
+                                                onClick={() => {
+                                                    const allChecked = rentalForm.agreements.agree1 && rentalForm.agreements.agree2 && rentalForm.agreements.agree3;
+                                                    setRentalForm(prev => ({
+                                                        ...prev,
+                                                        agreements: { agree1: !allChecked, agree2: !allChecked, agree3: !allChecked }
+                                                    }));
+                                                }}
+                                                className="w-full flex items-center gap-3 p-5 bg-blue-50/50 rounded-2xl border border-blue-100 transition-all active:scale-[0.98]"
+                                            >
+                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${rentalForm.agreements.agree1 && rentalForm.agreements.agree2 && rentalForm.agreements.agree3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                                                    <CheckCircle size={16} />
+                                                </div>
+                                                <span className="font-black text-[#001a3d]">모든 약관에 전체 동의합니다.</span>
+                                            </button>
+
+                                            <div className="space-y-4">
+                                                {/* Agreement 1 */}
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between items-center px-1">
+                                                        <span className="text-sm font-black text-gray-700">개인(신용)정보 수집·이용 동의서 (필수)</span>
+                                                        <button onClick={() => setRentalForm(prev => ({ ...prev, agreements: { ...prev.agreements, agree1: !prev.agreements.agree1 } }))}>
+                                                            <CheckCircle size={20} className={rentalForm.agreements.agree1 ? "text-blue-600" : "text-gray-300"} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="h-24 overflow-y-auto p-4 bg-gray-50 rounded-xl text-[11px] text-gray-500 leading-relaxed font-medium border border-gray-100">
+                                                        (주)비에스온 귀하<br /><br />
+                                                        귀사와의 상거래와 관련하여 귀사가 본인의 개인(신용)정보를 수집·이용하고자 하는 경우에는 「개인정보 보호법」 제15조 및 제22조, 「신용정보의 이용 및 보호에 관한 법률」 제32조, 제33조 및 제34조에 따라 동의를 얻어야 합니다. 이에 본인은 귀사가 아래의 내용과 같이 본인의 개인(신용)정보를 수집·이용하는데 동의합니다.<br /><br />
+                                                        1. 개인(신용)정보의 필수적 수집 · 이용에 관한 사항<br /><br />
+                                                        1) 개인(신용)정보의 수집 · 이용 목적<br />
+                                                        • 상거래 관계의 설정·이행·유지·관리, 법령상 의무이행, 분쟁처리, 민원처리, 본인여부확인 등<br />
+                                                        2) 수집·이용할 개인(신용)정보의 내용<br />
+                                                        • 개인식별정보 : 성명, 주소, 연락처, E-mail, 출생등록지, 성별, 국적, 본인인증정보, 기타 식별정보 등<br />
+                                                        • 기타 계약의 설정·이행·유지·관리 등과 관련하여 본인이 제공한 정보 등<br />
+                                                        3) 개인(신용)정보의 보유 및 이용기간<br />
+                                                        • 동의일로부터 개인(신용)정보의 수집·이용 목적을 달성할 때까지<br />
+                                                        • 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름<br />
+                                                        ※ 귀하는 동의를 거부할 권리가 있으나, 동의하지 않는 경우 계약의 설정·이행·유지·관리 등이 불가능할 수 있음을 알려드립니다.
+                                                    </div>
+                                                </div>
+
+                                                {/* Agreement 2 */}
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between items-center px-1">
+                                                        <span className="text-sm font-black text-gray-700">개인(신용)정보의 조회 동의서 (필수)</span>
+                                                        <button onClick={() => setRentalForm(prev => ({ ...prev, agreements: { ...prev.agreements, agree2: !prev.agreements.agree2 } }))}>
+                                                            <CheckCircle size={20} className={rentalForm.agreements.agree2 ? "text-blue-600" : "text-gray-300"} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="h-24 overflow-y-auto p-4 bg-gray-50 rounded-xl text-[11px] text-gray-500 leading-relaxed font-medium border border-gray-100">
+                                                        (주)비에스온 귀하<br /><br />
+                                                        본인은 귀사가 「신용정보의 이용 및 보호에 관한 법률」 제32조 제2항에 따라 아래와 같은 내용으로 신용조회회사, 신용정보집중기관 등으로부터 본인의 개인(신용)정보를 조회하는 것에 동의합니다.<br /><br />
+                                                        1. 조회 대상 기관<br />
+                                                        • 종합신용정보집중기관 : 한국신용정보원, 여신금융협회 등<br />
+                                                        • 신용조회회사 : 코리아크레딧뷰로(주), NICE평가정보(주)<br />
+                                                        2. 조회할 개인(신용)정보<br />
+                                                        • 개인식별정보 : 성명, 주소, 연락처(휴대폰 등), E-mail, 성별, 국적, 본인인증 및 식별정보 등<br />
+                                                        • 신용거래정보 : 대출, 보증, 담보제공, 당좌거래, 신용카드, 할부금융과 관련한 금융거래 등 상거래와 관련하여 그 거래의 종류, 기간, 금액 및 한도 등에 관한 사항<br />
+                                                        • 신용도판단정보 : 연체, 부도, 대위변제, 대지급, 신용질서 문란행위와 관련된 금액 및 발생 · 해소의 시기 등에 관한 사항<br />
+                                                        • 신용능력정보 : 직업, 재산, 채무, 소득의 총액, 납세실적 등 신용거래능력을 판단할 수 있는 정보<br />
+                                                        • 공공기관정보 : 개인회생, 파산, 면책 등에 관한 신청 및 법원의 결정 관련정보, 채무불이행자명부 등재·말소 결정, 체납정보, 신용회복관련정보 등<br />
+                                                        • 신용평가정보 : 신용등급, 신용평점 등<br />
+                                                        • 기타 본인의 신용을 판단할 수 있는 정보 등<br />
+                                                        3. 조회목적<br />
+                                                        • 상거래 관계의 설정·이행·유지·관리, 법령상 의무이행, 분쟁처리, 민원처리, 본인여부확인 등<br />
+                                                        4. 조회동의 효력기간<br />
+                                                        • 동의일로부터 당해 계약의 종료일(예 : 기간만기, 계약해지 등) 또는 동의철회 시 까지 동의의 효력이 유지 됨<br />
+                                                        • 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따르며, 귀하가 신청한 계약이 체결되지 아니한 경우에는 그 시점부터 동의의 효력은 소멸합니다.<br />
+                                                        5. 조회자의 개인(신용)정보의 보유 및 이용기간<br />
+                                                        • 개인(신용)정보를 제공받는 날로부터 조회목적을 달성할 때까지<br />
+                                                        • 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름<br /><br />
+                                                        ※ 귀하는 동의를 거부할 권리가 있으나, 동의하지 않는 경우 계약의 설정·이행·유지·관리 등이 불가능할 수 있음을 알려드립니다.<br />
+                                                        ※ 신용조회기록은 무등급자에 대한 신용등급산정 이외에는 신용등급에 영향을 미치지 않습니다.
+                                                    </div>
+                                                </div>
+
+                                                {/* Agreement 3 */}
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between items-center px-1">
+                                                        <span className="text-sm font-black text-gray-700">개인(신용)정보 제공 동의서 (필수)</span>
+                                                        <button onClick={() => setRentalForm(prev => ({ ...prev, agreements: { ...prev.agreements, agree3: !prev.agreements.agree3 } }))}>
+                                                            <CheckCircle size={20} className={rentalForm.agreements.agree3 ? "text-blue-600" : "text-gray-300"} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="h-24 overflow-y-auto p-4 bg-gray-50 rounded-xl text-[11px] text-gray-500 leading-relaxed font-medium border border-gray-100">
+                                                        (주)비에스온 귀하<br /><br />
+                                                        귀사와의 상거래와 관련하여 귀사가 본인의 개인(신용)정보를 「개인정보 보호법」 제17조 및 제22조, 「신용정보의 이용 및 보호에 관한 법률」 제32조, 제33조 및 제34조에 따라 제3자에게 제공할 경우 본인의 동의를 얻어야 합니다. 이에 본인은 귀사가 본인의 개인(신용)정보를 아래와 같이 제3자에게 제공하는데 동의합니다.<br /><br />
+                                                        1. 개인(신용)정보의 필수적 제공에 관한 사항<br /><br />
+                                                        (1) 신용정보집중기관 및 신용조회회사에 개인(신용)정보 제공<br />
+                                                        1) 개인(신용)정보를 제공받는 자<br />
+                                                        • 종합신용정보집중기관 : 한국신용정보원, 여신금융협회 등<br />
+                                                        • 신용조회회사 : 코리아크레딧뷰로(주), NICE평가정보(주)<br />
+                                                        2) 제공받는 자의 이용 목적<br />
+                                                        • 신용정보의 집중·관리 및 활용 등 신용정보집중기관의 업무<br />
+                                                        • 본인의 신용판단 자료 및 공공기관 정책자료로 활용<br />
+                                                        • 신용평가, 실명확인 등 신용조회회사의 업무<br />
+                                                        3) 제공할 개인(신용)정보의 내용<br />
+                                                        • 개인식별정보 : 성명, 주소, 연락처(휴대폰 등), E-mail, 성별, 국적, 본인인증 및 식별정보 등<br />
+                                                        • 기타 본인의 신용을 판단할 수 있는 정보 등<br />
+                                                        4) 제공받는 자의 개인(신용)정보 보유 및 이용기간<br />
+                                                        • 개인(신용)정보를 제공받는 자의 이용목적을 달성할 때까지<br />
+                                                        • 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
 
                         {/* Bottom Action Button */}
-                        {rentalStep < 4 && (
+                        {rentalStep <= 4 && !(rentalStep === 4 && applicationType === 'subscription') && (
                             <div className="p-5 md:p-8 bg-white border-t border-gray-100 safe-area-bottom">
                                 <button
                                     disabled={(() => {
@@ -1210,11 +1323,30 @@ const CustomerPage = () => {
                                             if (rentalForm.ownershipType === 'family_own') return rentalForm.files.registry.length === 0 || rentalForm.files.family.length === 0 || rentalForm.files.id_card.length === 0 || rentalForm.files.bank_book.length === 0;
                                             if (rentalForm.ownershipType === 'move_own') return rentalForm.files.contract.length === 0 || rentalForm.files.id_card.length === 0 || rentalForm.files.bank_book.length === 0;
                                         }
+                                        if (rentalStep === 4) {
+                                            return !rentalForm.agreements.agree1 || !rentalForm.agreements.agree2 || !rentalForm.agreements.agree3;
+                                        }
                                         return false;
                                     })()}
                                     onClick={async () => {
                                         if (rentalStep < 4) {
                                             setRentalStep(prev => prev + 1);
+                                        } else {
+                                            // Handle final submission for RENTAL (Subscription is handled inside STEP 4 UI)
+                                            if (window.confirm('렌탈 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.')) {
+                                                setIsSubmitting(true);
+                                                const res = await submitRentalApplication(data, rentalForm);
+                                                setIsSubmitting(false);
+
+                                                if (res.success) {
+                                                    alert(`렌탈 신청이 정상적으로 완료되었습니다.\n신청 가능 여부를 확인한 후 담당자를 통해 연락드리겠습니다.\n감사합니다.(1~2일 소요)`);
+                                                    setIsRentalMode(false);
+                                                    setApplicationType(null);
+                                                    setRentalStep(1);
+                                                } else {
+                                                    alert("신청 중 오류가 발생했습니다: " + res.message);
+                                                }
+                                            }
                                         }
                                     }}
                                     className="w-full bg-[#001a3d] text-white py-4 rounded-2xl text-lg font-black shadow-xl hover:bg-blue-900 active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
