@@ -40,4 +40,50 @@ export default defineSchema({
         link: v.string(),
         height: v.optional(v.any()), // Can be string or number
     }),
+
+    rental_applications: defineTable({
+        quoteId: v.optional(v.id("quotes")),
+        name: v.string(),
+        phone: v.string(),
+        address: v.string(),
+        birthDate: v.string(),
+        gender: v.string(),
+        selectedAmount: v.number(),
+        ownershipType: v.string(),
+        files: v.array(v.object({
+            category: v.string(), // registry, contract, family, id_card
+            name: v.string(),
+            storageId: v.string(),
+        })),
+        agreements: v.object({
+            agree1: v.boolean(),
+            agree2: v.boolean(),
+            agree3: v.boolean(),
+        }),
+        status: v.string(), // pending
+        createdAt: v.string(),
+    }),
+
+    subscription_applications: defineTable({
+        quoteId: v.optional(v.id("quotes")),
+        name: v.string(),
+        phone: v.string(),
+        address: v.string(),
+        birthDate: v.string(),
+        gender: v.string(),
+        selectedAmount: v.number(),
+        ownershipType: v.string(),
+        files: v.array(v.object({
+            category: v.string(),
+            name: v.string(),
+            storageId: v.string(),
+        })),
+        agreements: v.object({
+            agree1: v.boolean(),
+            agree2: v.boolean(),
+            agree3: v.boolean(),
+        }),
+        status: v.string(), // pending
+        createdAt: v.string(),
+    }),
 });

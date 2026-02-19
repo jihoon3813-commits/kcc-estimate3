@@ -138,3 +138,153 @@ export const searchQuote = async (name, phone, statusType) => {
         return { success: false, message: error.message };
     }
 };
+/**
+ * 렌탈 신청 데이터 및 파일 저장
+ */
+export const submitRentalApplication = async (customerData, rentalForm) => {
+    try {
+        // Collect all files to upload
+        var uploadedFiles = [];
+        var fileUploads = [];
+
+        // Correctly iterate over files object
+        if (rentalForm.files) {
+            for (const category in rentalForm.files) {
+                if (Object.prototype.hasOwnProperty.call(rentalForm.files, category)) {
+                    const files = rentalForm.files[category];
+                    if (Array.isArray(files) && files.length > 0) {
+                        for (const file of files) {
+                            fileUploads.push({ category, file });
+                        }
+                    }
+                }
+            }
+        }
+
+        console.log(`Starting upload for ${fileUploads.length} files...`);
+
+        // Upload files in parallel
+        await Promise.all(fileUploads.map(async ({ category, file }) => {
+            try {
+                // 1. Get upload URL
+                const postUrl = await convex.mutation(api.rentals.generateUploadUrl);
+
+                // 2. Upload file
+                const result = await fetch(postUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": file.type },
+                    body: file,
+                });
+
+                if (!result.ok) throw new Error(`Upload failed for ${file.name}`);
+
+                const { storageId } = await result.json();
+                uploadedFiles.push({
+                    category: category,
+                    name: file.name,
+                    storageId: storageId
+                });
+                console.log(`Uploaded ${file.name} (ID: ${storageId})`);
+            } catch (err) {
+                console.error(`Failed to upload ${file.name}:`, err);
+                throw err;
+            }
+        }));
+
+        // Submit Application Data
+        const params = {
+            quoteId: customerData._id ? customerData._id : undefined,
+            name: customerData.name || "",
+            phone: customerData.phone || "",
+            address: customerData.address || "",
+            birthDate: rentalForm.birthDate,
+            gender: rentalForm.gender,
+            selectedAmount: rentalForm.selectedAmount,
+            ownershipType: rentalForm.ownershipType,
+            files: uploadedFiles,
+            agreements: {
+                agree1: rentalForm.agreements.agree1,
+                agree2: rentalForm.agreements.agree2,
+                agree3: rentalForm.agreements.agree3
+            },
+        };
+
+        console.log("Submitting rental application...", params);
+        const id = await convex.mutation(api.rentals.submitApplication, params);
+        console.log("Application submitted successfully, ID:", id);
+        return { success: true, id };
+
+    } catch (error) {
+        console.error("Rental Application Error:", error);
+        return { success: false, message: error.message };
+    }
+};
+
+export const getRentalApplicationList = async () => {
+    try {
+        const data = await convex.query(api.rentals.listApplications);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+export const getSubscriptionApplicationList = async () => {
+    try {
+        const data = await convex.query(api.subscriptions.listApplications);
+        return { success: true, data };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+export const submitSubscriptionApplication = async (customerData, form) => {
+    try {
+        var uploadedFiles = [];
+        var fileUploads = [];
+
+        if (form.files) {
+            for (const category in form.files) {
+                if (Object.prototype.hasOwnProperty.call(form.files, category)) {
+                    const files = form.files[category];
+                    if (Array.isArray(files) && files.length > 0) {
+                        for (const file of files) {
+                            fileUploads.push({ category, file });
+                        }
+                    }
+                }
+            }
+        }
+
+        await Promise.all(fileUploads.map(async ({ category, file }) => {
+            const postUrl = await convex.mutation(api.rentals.generateUploadUrl);
+            const result = await fetch(postUrl, {
+                method: "POST",
+                headers: { "Content-Type": file.type },
+                body: file,
+            });
+            if (!result.ok) throw new Error(`Upload failed for ${file.name}`);
+            const { storageId } = await result.json();
+            uploadedFiles.push({ category, name: file.name, storageId });
+        }));
+
+        const params = {
+            quoteId: customerData._id ? customerData._id : undefined,
+            name: customerData.name || "",
+            phone: customerData.phone || "",
+            address: customerData.address || "",
+            birthDate: form.birthDate,
+            gender: form.gender,
+            selectedAmount: form.selectedAmount,
+            ownershipType: form.ownershipType,
+            files: uploadedFiles,
+            agreements: { ...form.agreements },
+        };
+
+        const id = await convex.mutation(api.subscriptions.submitApplication, params);
+        return { success: true, id };
+    } catch (error) {
+        console.error("Subscription Application Error:", error);
+        return { success: false, message: error.message };
+    }
+};

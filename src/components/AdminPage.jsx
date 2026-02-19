@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Upload, FileText, Calculator, Save, CheckCircle, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
+import { Upload, FileText, Calculator, Save, CheckCircle, Loader2, RefreshCw, ExternalLink, Search, ShieldCheck, Download } from 'lucide-react';
 import { parseExcelEstimate } from '../lib/excelParser';
 import { saveQuote } from '../lib/api';
 
@@ -36,7 +36,7 @@ const AdminPage = () => {
     const [isConfirmMode, setIsConfirmMode] = useState(false);
 
     // === NEW ADMIN LOOKUP STATE ===
-    const [activeTab, setActiveTab] = useState('send'); // 'send' | 'lookup'
+    const [activeTab, setActiveTab] = useState('send'); // 'send' | 'lookup' | 'rental'
     const [quoteList, setQuoteList] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
     const [filterDate, setFilterDate] = useState('all');
@@ -45,6 +45,10 @@ const AdminPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedQuote, setSelectedQuote] = useState(null);
     const [sortOrder, setSortOrder] = useState('desc'); // 'desc' | 'asc'
+    const [rentalList, setRentalList] = useState([]);
+    const [filteredRentalList, setFilteredRentalList] = useState([]);
+    const [subscriptionList, setSubscriptionList] = useState([]);
+    const [filteredSubscriptionList, setFilteredSubscriptionList] = useState([]);
 
     useEffect(() => {
         console.log("AdminPage Mounted and Ready");
@@ -71,6 +75,11 @@ const AdminPage = () => {
     // Helper for formatting currency
     const formatKrw = (val) => {
         return Math.floor(val).toLocaleString() + "원";
+    };
+
+    const calculatePackage = (basePrice, rentalMonthly, subtractAmount) => {
+        const advancePayment = (basePrice || 0) - (subtractAmount || 0);
+        return advancePayment < 0 ? "해당없음" : formatKrw(advancePayment);
     };
 
     // === EXCEL LOGIC ===
@@ -255,35 +264,46 @@ const AdminPage = () => {
     const fetchList = async () => {
         setLoading(true);
         try {
-            const { getAdminQuoteList } = await import('../lib/api');
-            const res = await getAdminQuoteList();
-            if (res.success) {
-                setQuoteList(res.data);
-                setFilteredList(res.data); // Initial set
-            } else {
-                alert("데이터 로드 실패: " + res.message);
+            if (activeTab === 'lookup') {
+                const { getAdminQuoteList } = await import('../lib/api');
+                const result = await getAdminQuoteList();
+                if (result.success) {
+                    setQuoteList(result.data);
+                }
+            } else if (activeTab === 'rental') {
+                const { getRentalApplicationList } = await import('../lib/api');
+                const result = await getRentalApplicationList();
+                if (result.success) {
+                    setRentalList(result.data);
+                }
+            } else if (activeTab === 'subscription') {
+                const { getSubscriptionApplicationList } = await import('../lib/api');
+                const result = await getSubscriptionApplicationList();
+                if (result.success) {
+                    setSubscriptionList(result.data);
+                }
             }
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error(error);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        if (activeTab === 'lookup') {
+        if (activeTab === 'lookup' || activeTab === 'rental' || activeTab === 'subscription') {
             fetchList();
         }
     }, [activeTab]);
 
     // Filtering Logic
     useEffect(() => {
-        let temp = [...quoteList];
+        // Filtering for Quote List
+        let tempQuotes = [...quoteList];
 
-        // 1. Search (Name, Phone, Address)
         if (searchTerm) {
             const normalizedSearch = searchTerm.trim().normalize('NFC').toLowerCase();
-            temp = temp.filter(item => {
+            tempQuotes = tempQuotes.filter(item => {
                 const name = (item.name || '').normalize('NFC').toLowerCase();
                 const phone = (item.phone || '').toLowerCase();
                 const address = (item.address || '').normalize('NFC').toLowerCase();
@@ -294,22 +314,19 @@ const AdminPage = () => {
             });
         }
 
-        // 2. Branch
         if (filterBranch !== 'all') {
-            temp = temp.filter(item => item.branch === filterBranch);
+            tempQuotes = tempQuotes.filter(item => item.branch === filterBranch);
         }
 
-        // 3. Type
         if (filterType !== 'all') {
-            temp = temp.filter(item => item.type === filterType);
+            tempQuotes = tempQuotes.filter(item => item.type === filterType);
         }
 
-        // 4. Date Range
         if (filterDate !== 'all') {
             const now = new Date();
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-            temp = temp.filter(item => {
+            tempQuotes = tempQuotes.filter(item => {
                 const itemDate = new Date(item.date); // item.date is yyyy-MM-dd
 
                 switch (filterDate) {
@@ -345,24 +362,76 @@ const AdminPage = () => {
             });
         }
 
-        // 5. Sorting
-        temp.sort((a, b) => {
+        tempQuotes.sort((a, b) => {
             const dateA = new Date(a.date).getTime();
             const dateB = new Date(b.date).getTime();
-
             if (dateA !== dateB) {
                 return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
             }
-
-            // Secondary sort: ID/CreationTime (if available)
             const idA = a._creationTime || a.id || 0;
             const idB = b._creationTime || b.id || 0;
             return sortOrder === 'desc' ? idB - idA : idA - idB;
         });
 
-        setFilteredList(temp);
+        setFilteredList(tempQuotes);
 
-    }, [quoteList, searchTerm, filterBranch, filterType, filterDate, sortOrder]);
+        // Filtering for Rental List
+        let tempRentals = [...rentalList];
+        if (searchTerm) {
+            const normalizedSearch = searchTerm.trim().normalize('NFC').toLowerCase();
+            tempRentals = tempRentals.filter(item => {
+                const name = (item.name || '').normalize('NFC').toLowerCase();
+                const phone = (item.phone || '').toLowerCase();
+                const address = (item.address || '').normalize('NFC').toLowerCase();
+                return name.includes(normalizedSearch) || phone.includes(normalizedSearch) || address.includes(normalizedSearch);
+            });
+        }
+        tempRentals.sort((a, b) => {
+            const dateA = new Date(a.createdAt).getTime();
+            const dateB = new Date(b.createdAt).getTime();
+            return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+        });
+        setFilteredRentalList(tempRentals);
+
+        // Filtering for Subscription List
+        let tempSubs = [...subscriptionList];
+        if (searchTerm) {
+            const normalizedSearch = searchTerm.trim().normalize('NFC').toLowerCase();
+            tempSubs = tempSubs.filter(item => {
+                const name = (item.name || '').normalize('NFC').toLowerCase();
+                const phone = (item.phone || '').toLowerCase();
+                const address = (item.address || '').normalize('NFC').toLowerCase();
+                return name.includes(normalizedSearch) || phone.includes(normalizedSearch) || address.includes(normalizedSearch);
+            });
+        }
+        tempSubs.sort((a, b) => {
+            const dateA = new Date(a.createdAt).getTime();
+            const dateB = new Date(b.createdAt).getTime();
+            return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+        });
+        setFilteredSubscriptionList(tempSubs);
+    }, [quoteList, rentalList, subscriptionList, searchTerm, filterBranch, filterType, filterDate, sortOrder]);
+
+    const handleRentalNameClick = async (rental) => {
+        setLoading(true);
+        setStatus("연결된 견적 정보를 불러오고 있습니다...");
+        try {
+            const { searchQuote } = await import('../lib/api');
+            // We search for the latest quote for this person. Rental applications usually link to the most recent one.
+            const res = await searchQuote(rental.name, rental.phone);
+            if (res.success) {
+                setSelectedQuote(res.data);
+            } else {
+                alert("연결된 견적 정보를 찾을 수 없습니다.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("견적 조회 중 오류가 발생했습니다.");
+        } finally {
+            setLoading(false);
+            setStatus("");
+        }
+    };
 
     // Remark Update
     const handleRemarkChange = async (item, newRemark) => {
@@ -572,6 +641,18 @@ const AdminPage = () => {
                     >
                         <FileText size={18} /> 견적조회
                     </button>
+                    <button
+                        onClick={() => setActiveTab('rental')}
+                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'rental' ? 'bg-[#2c3e50] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <ShieldCheck size={18} /> 렌탈신청 내역
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('subscription')}
+                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'subscription' ? 'bg-[#1a3a3a] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <Save size={18} /> 할부신청 내역
+                    </button>
                 </div>
             </header>
 
@@ -769,6 +850,19 @@ const AdminPage = () => {
                                                 <div key={m} className={`p-3 rounded-xl text-center ${m === 60 ? 'bg-[#001a3d] text-white' : 'bg-gray-50 text-gray-600'}`}>
                                                     <p className="text-[10px] opacity-70 mb-0.5">{m}개월</p>
                                                     <p className="text-sm font-black">{formatKrw(calculations.subs[m]).replace('원', '')}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="border-t border-gray-100 pt-6">
+                                        <p className="text-xs text-gray-400 font-bold mb-3 uppercase">60개월 렌탈 고정형 패키지 (선납금)</p>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {[11, 22, 33].map(val => (
+                                                <div key={val} className="p-3 rounded-xl text-center bg-gray-50 border border-gray-100 transition-all hover:bg-white hover:shadow-md hover:border-[#c5a059]/30">
+                                                    <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val}만원 고정</p>
+                                                    <p className="text-sm font-black text-[#001a3d]">
+                                                        {calculatePackage(calculations.finalBenefit, val * 10000, val * 500000 / 1.1)}
+                                                    </p>
                                                 </div>
                                             ))}
                                         </div>
@@ -971,6 +1065,198 @@ const AdminPage = () => {
                 </div>
             )}
 
+            {/* TAB CONTENT: RENTAL APPLICATIONS (NEW) */}
+            {activeTab === 'rental' && (
+                <div className="space-y-6 animate-in fade-in">
+                    {/* Filters (Reduced for Rental) */}
+                    <div className="glass-card p-4 rounded-[2rem] flex flex-wrap gap-4 items-center">
+                        <div className="flex-1 min-w-[200px] relative">
+                            <input
+                                type="text"
+                                placeholder="고객명, 전화번호 검색"
+                                className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#2c3e50]/50 transition-all font-bold text-sm"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                <Search size={18} />
+                            </div>
+                        </div>
+                        <select
+                            className="bg-gray-50 px-4 py-3 rounded-xl text-sm font-black text-[#001a3d] border-none cursor-pointer focus:ring-2 focus:ring-[#2c3e50]/50"
+                            value={sortOrder}
+                            onChange={(e) => setSortOrder(e.target.value)}
+                        >
+                            <option value="desc">최신순</option>
+                            <option value="asc">과거순</option>
+                        </select>
+                        <button
+                            onClick={fetchList}
+                            className="p-3 bg-gray-50 text-gray-500 hover:text-[#2c3e50] hover:bg-blue-50 rounded-xl transition-all"
+                        >
+                            <RefreshCw size={18} />
+                        </button>
+                    </div>
+
+                    {/* Table View */}
+                    <div className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-[#2c3e50] text-white">
+                                    <tr>
+                                        {[
+                                            "순번", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
+                                        ].map((th, i) => (
+                                            <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {filteredRentalList.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="9" className="text-center py-20 text-gray-400 font-bold">렌탈 신청 내역이 없습니다.</td>
+                                        </tr>
+                                    ) : (
+                                        filteredRentalList.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                                <td className="px-4 py-4 text-center font-bold text-gray-300">{filteredRentalList.length - idx}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-400 text-[11px]">{new Date(item.createdAt || Date.now()).toLocaleString()}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-blue-600 hover:text-blue-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.birthDate}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.gender === 'male' ? '남성' : '여성'}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.ownershipType === 'own_own' ? '본인소유' : '이사예정'}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-blue-600">{item.selectedAmount}만원</td>
+                                                <td className="px-4 py-4">
+                                                    <div className="space-y-1.5 min-w-[240px]">
+                                                        {item.files.map((file, fIdx) => (
+                                                            <a
+                                                                key={fIdx}
+                                                                href={file.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-50 hover:bg-blue-50 rounded-lg group transition-all border border-gray-100"
+                                                            >
+                                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                                    <span className="text-[10px] font-black text-white bg-[#c5a059] px-1.5 py-0.5 rounded shrink-0">
+                                                                        {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : '기타')))}
+                                                                    </span>
+                                                                    <span className="text-[11px] font-bold text-gray-600 truncate group-hover:text-blue-600 underline-offset-2 group-hover:underline">
+                                                                        {file.name}
+                                                                    </span>
+                                                                </div>
+                                                                <Download size={12} className="text-gray-300 group-hover:text-blue-500 shrink-0" />
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB CONTENT: SUBSCRIPTION APPLICATIONS (NEW) */}
+            {activeTab === 'subscription' && (
+                <div className="space-y-6 animate-in fade-in">
+                    {/* Filters */}
+                    <div className="glass-card p-4 rounded-[2rem] flex flex-wrap gap-4 items-center">
+                        <div className="flex-1 min-w-[200px] relative">
+                            <input
+                                type="text"
+                                placeholder="고객명, 전화번호 검색"
+                                className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#2c3e50]/50 transition-all font-bold text-sm"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                <Search size={18} />
+                            </div>
+                        </div>
+                        <select
+                            className="bg-gray-50 px-4 py-3 rounded-xl text-sm font-black text-[#001a3d] border-none cursor-pointer focus:ring-2 focus:ring-[#2c3e50]/50"
+                            value={sortOrder}
+                            onChange={(e) => setSortOrder(e.target.value)}
+                        >
+                            <option value="desc">최신순</option>
+                            <option value="asc">과거순</option>
+                        </select>
+                        <button
+                            onClick={fetchList}
+                            className="p-3 bg-gray-50 text-gray-500 hover:text-[#2c3e50] hover:bg-blue-50 rounded-xl transition-all"
+                        >
+                            <RefreshCw size={18} />
+                        </button>
+                    </div>
+
+                    {/* Table View */}
+                    <div className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-[#1a3a3a] text-white">
+                                    <tr>
+                                        {[
+                                            "순번", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
+                                        ].map((th, i) => (
+                                            <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {filteredSubscriptionList.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="9" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
+                                        </tr>
+                                    ) : (
+                                        filteredSubscriptionList.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-teal-50/30 transition-colors">
+                                                <td className="px-4 py-4 text-center font-bold text-gray-300">{filteredSubscriptionList.length - idx}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-400 text-[11px]">{new Date(item.createdAt || Date.now()).toLocaleString()}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600 hover:text-teal-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.birthDate}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.gender === 'male' ? '남성' : '여성'}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">
+                                                    {item.ownershipType === 'own_own' ? '본인소유' : (item.ownershipType === 'family_own' ? '가족소유' : '이사예정')}
+                                                </td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600">{item.selectedAmount}개월 ({formatKrw(item.monthlyAmount || 0)})</td>
+                                                <td className="px-4 py-4">
+                                                    <div className="space-y-1.5 min-w-[240px]">
+                                                        {item.files.map((file, fIdx) => (
+                                                            <a
+                                                                key={fIdx}
+                                                                href={file.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-50 hover:bg-teal-50 rounded-lg group transition-all border border-gray-100"
+                                                            >
+                                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                                    <span className="text-[10px] font-black text-white bg-[#c5a059] px-1.5 py-0.5 rounded shrink-0">
+                                                                        {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : (file.category === 'bank_book' ? '통장' : '기타'))))}
+                                                                    </span>
+                                                                    <span className="text-[11px] font-bold text-gray-600 truncate group-hover:text-teal-600 underline-offset-2 group-hover:underline">
+                                                                        {file.name}
+                                                                    </span>
+                                                                </div>
+                                                                <Download size={12} className="text-gray-300 group-hover:text-teal-500 shrink-0" />
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Loading Overlay */}
             {
                 loading && (
@@ -1098,6 +1384,23 @@ const AdminPage = () => {
                                         <p className="text-[10px] text-gray-400 font-bold mb-1">비고 (Remark)</p>
                                         <p className="text-sm font-medium text-gray-600">{selectedQuote.remark || '-'}</p>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* 4. 60-Month Rental Fixed Package */}
+                            <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
+                                <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
+                                    60개월 렌탈 고정형 패키지 (선납금)
+                                </h4>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[11, 22, 33].map(val => (
+                                        <div key={val} className="p-3 rounded-xl text-center bg-white border border-gray-100">
+                                            <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val}만원 고정</p>
+                                            <p className="text-sm font-black text-[#001a3d]">
+                                                {calculatePackage(Number(selectedQuote.finalBenefit), val * 10000, val * 500000 / 1.1)}
+                                            </p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>

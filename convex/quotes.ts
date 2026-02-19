@@ -27,7 +27,8 @@ export const saveQuote = mutation({
         remark: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const normalizedName = args.name.normalize("NFC");
+        // Trim name to prevent whitespace issues
+        const normalizedName = args.name.trim().normalize("NFC");
         const quoteId = await ctx.db.insert("quotes", { ...args, name: normalizedName });
         return quoteId;
     },
@@ -57,7 +58,7 @@ export const internalSaveQuote = internalMutation({
         remark: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const normalizedName = args.name.normalize("NFC");
+        const normalizedName = args.name.trim().normalize("NFC");
         const quoteId = await ctx.db.insert("quotes", { ...args, name: normalizedName });
         return quoteId;
     },
@@ -120,27 +121,51 @@ export const searchQuote = query({
         statusType: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const normalizedName = args.name.normalize("NFC");
-        let quotes = await ctx.db
-            .query("quotes")
-            .withIndex("by_name_phone", (q) =>
-                q.eq("name", normalizedName).eq("phone", args.phone)
-            )
-            .order("desc")
-            .collect();
+        const normalizedName = args.name.trim().normalize("NFC");
 
-        if (args.statusType) {
-            quotes = quotes.filter((q) => q.type === args.statusType);
+        // Prepare phone variations to try (clean, dashed, etc)
+        const cleanPhone = args.phone.replace(/[^0-9]/g, "");
+
+        // Basic 3-4-4 or 3-3-4 formatting logic for Korea
+        let dashedPhone = cleanPhone;
+        if (cleanPhone.length === 11) {
+            dashedPhone = `${cleanPhone.slice(0, 3)}-${cleanPhone.slice(3, 7)}-${cleanPhone.slice(7)}`;
+        } else if (cleanPhone.length === 10) {
+            if (cleanPhone.startsWith('02')) {
+                dashedPhone = `${cleanPhone.slice(0, 2)}-${cleanPhone.slice(2, 6)}-${cleanPhone.slice(6)}`;
+            } else {
+                dashedPhone = `${cleanPhone.slice(0, 3)}-${cleanPhone.slice(3, 6)}-${cleanPhone.slice(6)}`;
+            }
         }
 
-        const quote = quotes[0];
-        if (!quote) return null;
+        // Try exact input, clean (no dashes), and standard dashed format
+        const phonesToTry = new Set([args.phone, cleanPhone, dashedPhone]);
 
-        return {
-            ...quote,
-            pdfUrl: quote.storageId
-                ? await ctx.storage.getUrl(quote.storageId)
-                : quote.pdfUrl,
-        };
+        for (const phoneVariant of phonesToTry) {
+            let quotes = await ctx.db
+                .query("quotes")
+                .withIndex("by_name_phone", (q) =>
+                    q.eq("name", normalizedName).eq("phone", phoneVariant)
+                )
+                .order("desc")
+                .collect();
+
+            // Filter by statusType if provided
+            if (args.statusType) {
+                quotes = quotes.filter((q) => q.type === args.statusType);
+            }
+
+            if (quotes.length > 0) {
+                const quote = quotes[0];
+                return {
+                    ...quote,
+                    pdfUrl: quote.storageId
+                        ? await ctx.storage.getUrl(quote.storageId)
+                        : quote.pdfUrl,
+                };
+            }
+        }
+
+        return null;
     },
 });

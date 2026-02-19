@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, Loader2 } from 'lucide-react';
-import { searchQuote } from '../lib/api';
+import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload } from 'lucide-react';
+import { searchQuote, submitRentalApplication, submitSubscriptionApplication } from '../lib/api';
 
 const CustomerPage = () => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -9,11 +9,35 @@ const CustomerPage = () => {
     const [modalType, setModalType] = useState(null); // 'A' or 'B'
     const [appliances, setAppliances] = useState({ A: [], B: [] });
     const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [searchForm, setSearchForm] = useState({ name: '', phone: '' });
 
     const [statusType, setStatusType] = useState('가견적'); // Default to final quote
     const [showContactMenu, setShowContactMenu] = useState(false);
+
+    // === RENTAL APPLICATION STATE ===
+    const [isRentalMode, setIsRentalMode] = useState(false);
+    const [applicationType, setApplicationType] = useState(null); // 'rental' | 'subscription'
+    const [rentalStep, setRentalStep] = useState(1);
+    const [rentalForm, setRentalForm] = useState({
+        birthDate: '',
+        gender: '', // 'male' | 'female'
+        selectedAmount: null, // 11, 22, 33
+        ownershipType: 'own_own', // 'own_own', 'move_own', 'family_own'
+        files: {
+            registry: [],
+            contract: [],
+            family: [],
+            id_card: [],
+            bank_book: []
+        },
+        agreements: {
+            agree1: false,
+            agree2: false,
+            agree3: false
+        }
+    });
 
     // Lock body scroll when modal is open
 
@@ -45,13 +69,18 @@ const CustomerPage = () => {
         setSearchForm(prev => ({ ...prev, phone: formatted }));
     };
 
-    const executeSearch = async (nameVal, phoneVal, typeVal) => {
+    const executeSearch = async (nameVal, phoneVal) => {
         setLoading(true);
         try {
-            const result = await searchQuote(nameVal, phoneVal, typeVal);
+            // Updated: Search without statusType filter to find ANY matching quote
+            const result = await searchQuote(nameVal, phoneVal);
 
             if (result.success) {
                 setData(result.data);
+                // Update tab to match the found quote type
+                if (result.data.type) {
+                    setStatusType(result.data.type);
+                }
                 if (result.config?.banners) {
                     setBanners(result.config.banners);
                 }
@@ -96,21 +125,46 @@ const CustomerPage = () => {
             const typeDec = t ? decodeURIComponent(t) : '가견적';
 
             setSearchForm({ name: nameDec, phone: phoneDec });
-            setStatusType(typeDec);
-            executeSearch(nameDec, phoneDec, typeDec);
+            // typeDec is used only for initial state, but search ignores it to find best match
+            if (typeDec) setStatusType(typeDec);
+            executeSearch(nameDec, phoneDec);
         }
     }, []);
 
     const handleSearch = (e) => {
         e.preventDefault();
-        executeSearch(searchForm.name, searchForm.phone, statusType);
+        executeSearch(searchForm.name, searchForm.phone);
     };
 
     const formatKrw = (val) => new Intl.NumberFormat('ko-KR').format(val || 0) + '원';
 
     const calculatePackage = (basePrice, rentalMonthly, subtractAmount) => {
-        const advancePayment = (basePrice || 0) - (subtractAmount || 0);
+        const amount = typeof basePrice === 'string' ? Number(basePrice.replace(/,/g, '')) : Number(basePrice);
+        const advancePayment = (amount || 0) - (subtractAmount || 0);
         return advancePayment < 0 ? "해당없음" : formatKrw(advancePayment);
+    };
+
+    const handleFileUpload = (type, e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const newFiles = Array.from(e.target.files);
+            setRentalForm(prev => ({
+                ...prev,
+                files: {
+                    ...prev.files,
+                    [type]: [...(prev.files[type] || []), ...newFiles]
+                }
+            }));
+        }
+    };
+
+    const removeFile = (type, index) => {
+        setRentalForm(prev => ({
+            ...prev,
+            files: {
+                ...prev.files,
+                [type]: prev.files[type].filter((_, i) => i !== index)
+            }
+        }));
     };
 
     if (!isLoggedIn) {
@@ -198,11 +252,11 @@ const CustomerPage = () => {
                 <div className="max-w-4xl mx-auto px-5 py-3.5 flex justify-between items-center">
                     <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/5b115594e9a66.png" alt="KCC Logo" className="h-6 object-contain" />
                     <div className="flex items-center gap-1.5">
-                        <span className={`text-white text-[9px] font-black px-2.5 py-1.5 rounded-md shadow-sm ${data.status === '최종견적' ? 'bg-red-500' :
-                            data.status === '책임견적' ? 'bg-[#c5a059]' :
+                        <span className={`text-white text-[9px] font-black px-2.5 py-1.5 rounded-md shadow-sm ${data.type === '최종견적' ? 'bg-red-500' :
+                            data.type === '책임견적' ? 'bg-[#c5a059]' :
                                 'bg-gray-400'
                             }`}>
-                            {data.status || '가견적'}
+                            {data.type || '가견적'}
                         </span>
                         <div className="bg-[#f0f4f9] text-[#2c3e50] text-[9px] font-black px-2.5 py-1.5 rounded-full border border-gray-200 flex items-center gap-1">
                             <Calendar size={10} />
@@ -334,7 +388,16 @@ const CustomerPage = () => {
                                         <div className="w-6 h-6 bg-white/20 text-white rounded-full flex items-center justify-center text-[10px] font-black border border-white/20 font-outfit">2</div>
                                         스마트 구독 서비스
                                     </div>
-                                    <span className="text-[8px] text-[#c5a059] font-black uppercase tracking-widest border border-[#c5a059]/30 px-2.5 py-1 rounded-full bg-[#c5a059]/10">Subscription</span>
+                                    <button
+                                        onClick={() => {
+                                            setApplicationType('subscription');
+                                            setIsRentalMode(true);
+                                            setRentalStep(1);
+                                        }}
+                                        className="bg-[#c5a059] hover:bg-[#b08d48] text-[#001a3d] text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg transition-all active:scale-95 flex items-center gap-1 shrink-0"
+                                    >
+                                        신청하기 <ChevronRight size={10} />
+                                    </button>
                                 </h4>
                                 <p className="text-white/60 text-[11px] font-medium ml-8">전체 시공비를 최대 60개월 나눠 낼 수 있는 구독형 서비스 입니다.</p>
                             </div>
@@ -362,7 +425,16 @@ const CustomerPage = () => {
                                             60개월 렌탈<br className="md:hidden" /> 고정형 패키지
                                         </h4>
                                     </div>
-                                    <span className="text-[7.5px] md:text-[8px] text-blue-300 font-black uppercase tracking-widest border border-blue-300/30 px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-blue-300/10 shrink-0">Rental Plan</span>
+                                    <button
+                                        onClick={() => {
+                                            setApplicationType('rental');
+                                            setIsRentalMode(true);
+                                            setRentalStep(1);
+                                        }}
+                                        className="bg-[#c5a059] hover:bg-[#b08d48] text-[#001a3d] text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg transition-all active:scale-95 flex items-center gap-1 shrink-0"
+                                    >
+                                        렌탈 신청하기 <ChevronRight size={10} />
+                                    </button>
                                 </div>
                                 <p className="text-white/60 text-[11px] font-medium ml-8">매월 일정금액을 고정시키고 일부 금액만 선납형으로 결제하는 하이브리드 렌탈 서비스 입니다.</p>
                             </div>
@@ -378,83 +450,83 @@ const CustomerPage = () => {
                                 ))}
                             </div>
                         </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 gap-6">
-                        {/* 구독 PLUS 서비스 */}
-                        <div className="purple-premium-gradient p-8 md:p-14 text-white relative overflow-hidden shadow-2xl flex flex-col justify-between">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-4xl"></div>
-                            <div className="relative z-10 space-y-12">
-                                <div className="space-y-3 text-center">
-                                    <span className="bg-[#facc15] text-[#311b92] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block shadow-lg">Upgrade</span>
-                                    <h3 className="text-2xl md:text-4xl font-black tracking-tight leading-none">구독 <span className="text-white italic">PLUS</span> 서비스</h3>
-                                    <p className="text-white/80 text-sm md:text-base font-semibold leading-relaxed">
-                                        월 구독료에 조금만 추가하면 <br className="md:hidden" />
-                                        <span className="text-[#facc15] font-black underline underline-offset-4 decoration-[#facc15]/30">최신 가전</span>까지 드립니다.
-                                    </p>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] space-y-4 shadow-2xl">
-                                        <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                                            <span className="font-black text-sm md:text-base tracking-tight">PLUS A 타입</span>
-                                            <button onClick={() => setModalType('A')} className="bg-white text-[#311b92] px-3 py-1.5 rounded-xl text-[9px] font-black shadow-lg active:scale-95 transition-all">제품 자세히 보기</button>
-                                        </div>
-                                        <div className="space-y-2.5 px-0.5">
-                                            {[24, 36, 48, 60].map(m => {
-                                                const fallbackA = { 24: 40000, 36: 30000, 48: 25000, 60: 20000 };
-                                                return (
-                                                    <div key={m} className={`flex justify-between items-center text-[12px] md:text-[13px] font-extrabold ${m === 60 ? 'text-[#facc15]' : 'text-white'}`}>
-                                                        <span>{m}개월</span>
-                                                        <span className="font-outfit">+{new Intl.NumberFormat('ko-KR').format(data.plusAdds?.A?.[m] || fallbackA[m])}원</span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                        <div className="grid grid-cols-1 gap-6">
+                            {/* 구독 PLUS 서비스 */}
+                            <div className="purple-premium-gradient p-8 md:p-14 text-white relative overflow-hidden shadow-2xl flex flex-col justify-between">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-4xl"></div>
+                                <div className="relative z-10 space-y-12">
+                                    <div className="space-y-3 text-center">
+                                        <span className="bg-[#facc15] text-[#311b92] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block shadow-lg">Upgrade</span>
+                                        <h3 className="text-2xl md:text-4xl font-black tracking-tight leading-none">구독 <span className="text-white italic">PLUS</span> 서비스</h3>
+                                        <p className="text-white/80 text-sm md:text-base font-semibold leading-relaxed">
+                                            월 구독료에 조금만 추가하면 <br className="md:hidden" />
+                                            <span className="text-[#facc15] font-black underline underline-offset-4 decoration-[#facc15]/30">최신 가전</span>까지 드립니다.
+                                        </p>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] space-y-4 shadow-2xl">
-                                        <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                                            <span className="font-black text-sm md:text-base tracking-tight">PLUS B 타입</span>
-                                            <button onClick={() => setModalType('B')} className="bg-white text-[#6a1b9a] px-3 py-1.5 rounded-xl text-[9px] font-black shadow-lg active:scale-95 transition-all">제품 자세히 보기</button>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] space-y-4 shadow-2xl">
+                                            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                                                <span className="font-black text-sm md:text-base tracking-tight">PLUS A 타입</span>
+                                                <button onClick={() => setModalType('A')} className="bg-white text-[#311b92] px-3 py-1.5 rounded-xl text-[9px] font-black shadow-lg active:scale-95 transition-all">제품 자세히 보기</button>
+                                            </div>
+                                            <div className="space-y-2.5 px-0.5">
+                                                {[24, 36, 48, 60].map(m => {
+                                                    const fallbackA = { 24: 40000, 36: 30000, 48: 25000, 60: 20000 };
+                                                    return (
+                                                        <div key={m} className={`flex justify-between items-center text-[12px] md:text-[13px] font-extrabold ${m === 60 ? 'text-[#facc15]' : 'text-white'}`}>
+                                                            <span>{m}개월</span>
+                                                            <span className="font-outfit">+{new Intl.NumberFormat('ko-KR').format(data.plusAdds?.A?.[m] || fallbackA[m])}원</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                        <div className="space-y-2.5 px-0.5">
-                                            {[24, 36, 48, 60].map(m => {
-                                                const fallbackB = { 24: 65000, 36: 45000, 48: 35000, 60: 30000 };
-                                                return (
-                                                    <div key={m} className={`flex justify-between items-center text-[12px] md:text-[13px] font-extrabold ${m === 60 ? 'text-[#facc15]' : 'text-white'}`}>
-                                                        <span>{m}개월</span>
-                                                        <span className="font-outfit">+{new Intl.NumberFormat('ko-KR').format(data.plusAdds?.B?.[m] || fallbackB[m])}원</span>
-                                                    </div>
-                                                );
-                                            })}
+                                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] space-y-4 shadow-2xl">
+                                            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                                                <span className="font-black text-sm md:text-base tracking-tight">PLUS B 타입</span>
+                                                <button onClick={() => setModalType('B')} className="bg-white text-[#6a1b9a] px-3 py-1.5 rounded-xl text-[9px] font-black shadow-lg active:scale-95 transition-all">제품 자세히 보기</button>
+                                            </div>
+                                            <div className="space-y-2.5 px-0.5">
+                                                {[24, 36, 48, 60].map(m => {
+                                                    const fallbackB = { 24: 65000, 36: 45000, 48: 35000, 60: 30000 };
+                                                    return (
+                                                        <div key={m} className={`flex justify-between items-center text-[12px] md:text-[13px] font-extrabold ${m === 60 ? 'text-[#facc15]' : 'text-white'}`}>
+                                                            <span>{m}개월</span>
+                                                            <span className="font-outfit">+{new Intl.NumberFormat('ko-KR').format(data.plusAdds?.B?.[m] || fallbackB[m])}원</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* 전용 혜택 카드 */}
-                        <div className="luxury-card p-10 md:p-14 bg-white border border-gray-100 shadow-xl space-y-10">
-                            <h4 className="text-xl md:text-2xl font-black text-[#001a3d] flex items-center gap-3 md:gap-4 whitespace-nowrap">
-                                <div className="w-2 h-8 md:w-2.5 md:h-10 bg-[#c5a059] rounded-full shrink-0"></div>
-                                계약 고객 특별 무상 서비스
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-[#f8fafc] p-6 md:p-8 rounded-[2rem] flex items-center gap-5 md:gap-8 border border-gray-100/50 hover:bg-white transition-all group cursor-default shadow-sm hover:shadow-xl hover:shadow-gray-200/50">
-                                    <div className="w-12 h-12 md:w-16 md:h-16 bg-white shadow-lg rounded-[1rem] md:rounded-[1.25rem] flex items-center justify-center text-[#c5a059] transition-transform group-hover:rotate-6 border border-gray-50"><ShieldCheck size={28} className="md:w-8 md:h-8" /></div>
-                                    <div>
-                                        <p className="text-[9px] md:text-[11px] font-black text-[#c5a059] uppercase tracking-[0.15em] mb-1 opacity-80 whitespace-nowrap">Upgrade Option 01</p>
-                                        <p className="text-base md:text-lg font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
-                                            고성능 더블로이유리<br /> 무상 업그레이드
-                                        </p>
+                            {/* 전용 혜택 카드 */}
+                            <div className="luxury-card p-10 md:p-14 bg-white border border-gray-100 shadow-xl space-y-10">
+                                <h4 className="text-xl md:text-2xl font-black text-[#001a3d] flex items-center gap-3 md:gap-4 whitespace-nowrap">
+                                    <div className="w-2 h-8 md:w-2.5 md:h-10 bg-[#c5a059] rounded-full shrink-0"></div>
+                                    계약 고객 특별 무상 서비스
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-[#f8fafc] p-6 md:p-8 rounded-[2rem] flex items-center gap-5 md:gap-8 border border-gray-100/50 hover:bg-white transition-all group cursor-default shadow-sm hover:shadow-xl hover:shadow-gray-200/50">
+                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-white shadow-lg rounded-[1rem] md:rounded-[1.25rem] flex items-center justify-center text-[#c5a059] transition-transform group-hover:rotate-6 border border-gray-50"><ShieldCheck size={28} className="md:w-8 md:h-8" /></div>
+                                        <div>
+                                            <p className="text-[9px] md:text-[11px] font-black text-[#c5a059] uppercase tracking-[0.15em] mb-1 opacity-80 whitespace-nowrap">Upgrade Option 01</p>
+                                            <p className="text-base md:text-lg font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
+                                                고성능 더블로이유리<br /> 무상 업그레이드
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="bg-[#f8fafc] p-6 md:p-8 rounded-[2rem] flex items-center gap-5 md:gap-8 border border-gray-100/50 hover:bg-white transition-all group cursor-default shadow-sm hover:shadow-xl hover:shadow-gray-200/50">
-                                    <div className="w-12 h-12 md:w-16 md:h-16 bg-white shadow-lg rounded-[1rem] md:rounded-[1.25rem] flex items-center justify-center text-[#c5a059] transition-transform group-hover:rotate-6 border border-gray-50"><ExternalLink size={28} className="md:w-8 md:h-8" /></div>
-                                    <div>
-                                        <p className="text-[9px] md:text-[11px] font-black text-[#c5a059] uppercase tracking-[0.15em] mb-1 opacity-80 whitespace-nowrap">Upgrade Option 02</p>
-                                        <p className="text-base md:text-lg font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
-                                            최고급 블랙 STS<br /> 방충망 전면 교체
-                                        </p>
+                                    <div className="bg-[#f8fafc] p-6 md:p-8 rounded-[2rem] flex items-center gap-5 md:gap-8 border border-gray-100/50 hover:bg-white transition-all group cursor-default shadow-sm hover:shadow-xl hover:shadow-gray-200/50">
+                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-white shadow-lg rounded-[1rem] md:rounded-[1.25rem] flex items-center justify-center text-[#c5a059] transition-transform group-hover:rotate-6 border border-gray-50"><ExternalLink size={28} className="md:w-8 md:h-8" /></div>
+                                        <div>
+                                            <p className="text-[9px] md:text-[11px] font-black text-[#c5a059] uppercase tracking-[0.15em] mb-1 opacity-80 whitespace-nowrap">Upgrade Option 02</p>
+                                            <p className="text-base md:text-lg font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
+                                                최고급 블랙 STS<br /> 방충망 전면 교체
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -580,62 +652,62 @@ const CustomerPage = () => {
                             ))}
                         </div>
                     </div>
+                </div>
 
-                    <div className="space-y-4 pt-4">
-                        <div className="luxury-card p-6 md:p-10 flex justify-center items-center bg-[#001a3d] text-white border-none shadow-2xl relative overflow-hidden group">
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 bg-blue-500/5 rounded-full blur-[120px]"></div>
-                            <div className="flex flex-row items-center gap-4 md:gap-10 relative z-10 w-full justify-center">
-                                <div className="w-10 h-10 md:w-14 md:h-14 bg-white/10 rounded-xl md:rounded-2xl flex items-center justify-center text-[#c5a059] shadow-inner border border-white/10 shrink-0"><CheckCircle2 size={24} className="md:w-7 md:h-7" /></div>
-                                <div className="flex flex-col items-start gap-1">
-                                    <p className="text-white/40 font-black text-[8px] md:text-[9px] uppercase tracking-[0.3em] font-outfit leading-none mb-0.5">Investment Total Summary</p>
-                                    <div className="relative inline-block">
-                                        <p className="text-3xl md:text-5xl font-black text-[#c5a059] font-outfit tracking-tighter leading-none">{formatKrw(data.finalQuote)}</p>
-                                        <p className="text-[9px] text-white/40 font-bold absolute -right-0 -bottom-3.5 md:-bottom-4.5 whitespace-nowrap">부가세 포함</p>
-                                    </div>
+                <div className="space-y-4 pt-4">
+                    <div className="luxury-card p-6 md:p-10 flex justify-center items-center bg-[#001a3d] text-white border-none shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 bg-blue-500/5 rounded-full blur-[120px]"></div>
+                        <div className="flex flex-row items-center gap-4 md:gap-10 relative z-10 w-full justify-center">
+                            <div className="w-10 h-10 md:w-14 md:h-14 bg-white/10 rounded-xl md:rounded-2xl flex items-center justify-center text-[#c5a059] shadow-inner border border-white/10 shrink-0"><CheckCircle2 size={24} className="md:w-7 md:h-7" /></div>
+                            <div className="flex flex-col items-start gap-1">
+                                <p className="text-white/40 font-black text-[8px] md:text-[9px] uppercase tracking-[0.3em] font-outfit leading-none mb-0.5">Investment Total Summary</p>
+                                <div className="relative inline-block">
+                                    <p className="text-3xl md:text-5xl font-black text-[#c5a059] font-outfit tracking-tighter leading-none">{formatKrw(data.finalQuote)}</p>
+                                    <p className="text-[9px] text-white/40 font-bold absolute -right-0 -bottom-3.5 md:-bottom-4.5 whitespace-nowrap">부가세 포함</p>
                                 </div>
                             </div>
                         </div>
-                        {data.pdfUrl && (
-                            <div className="flex justify-center pt-2">
-                                <a
-                                    href={data.pdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="premium-btn w-full py-5 md:py-6 px-4 md:px-16 flex items-center justify-center gap-2 md:gap-4 shadow-xl text-base md:text-lg tracking-tight font-black hover:scale-[1.02] active:scale-95 transition-all whitespace-nowrap"
-                                >
-                                    <Download size={20} className="md:w-6 md:h-6" /> 상세 견적서 PDF 다운로드
-                                </a>
-                            </div>
-                        )}
                     </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                    {banners?.map((b, i) => (
-                        <a key={i} href={b.link} target="_blank" rel="noopener noreferrer" className="luxury-card overflow-hidden bg-white shadow-xl border-none transition-transform hover:scale-[1.01] duration-500">
-                            <img src={b.img} alt="광고 배너" className="w-full h-auto object-cover" />
-                        </a>
-                    ))}
-                </div>
-
-                <footer className="pt-8 pb-4 text-center space-y-6">
-                    <p className="text-gray-400 font-bold text-[9px] uppercase tracking-[0.6em] opacity-50">Main Project Partner</p>
-                    <h4 className="text-lg md:text-2xl font-black text-[#001a3d] tracking-tighter decoration-luxury decoration-2 whitespace-nowrap px-2">
-                        (주)KCC글라스 홈씨씨 | (주)티유디지털
-                    </h4>
-                    <div className="max-w-2xl mx-auto space-y-4 text-[11px] font-extrabold text-gray-500 leading-relaxed px-4">
-                        <p className="opacity-80 text-center">서울시 가산디지털1로 83, 파트너스타워1, 802호<br />사업자등록번호: 220-87-15092 ｜ 김정열 대표이사</p>
-                        <div className="bg-gray-100/80 p-4 rounded-[1.5rem] border border-gray-200/50 text-[#001a3d] shadow-inner inline-block min-w-[300px]">
-                            <span className="text-[9px] uppercase tracking-[0.4em] text-[#c5a059] font-black mb-1 inline-block border-b-2 border-[#c5a059]/10 pb-1">Deposit Info</span><br />
-                            <span className="text-base font-black font-outfit">(국민은행) 421737-04-015908</span><br />
-                            <span className="font-black text-[11px] opacity-80 mt-0.5 block tracking-wider">계좌주 : (주)티유디지털</span>
+                    {data.pdfUrl && (
+                        <div className="flex justify-center pt-2">
+                            <a
+                                href={data.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="premium-btn w-full py-5 md:py-6 px-4 md:px-16 flex items-center justify-center gap-2 md:gap-4 shadow-xl text-base md:text-lg tracking-tight font-black hover:scale-[1.02] active:scale-95 transition-all whitespace-nowrap"
+                            >
+                                <Download size={20} className="md:w-6 md:h-6" /> 상세 견적서 PDF 다운로드
+                            </a>
                         </div>
-                    </div>
-                </footer>
-
-                <div className="pt-2 border-t border-gray-100/30 text-center">
-                    <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/87d2040aa0130.png" alt="하단 로고" className="w-full max-w-2xl mx-auto object-contain opacity-100 rounded-2xl" />
+                    )}
                 </div>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-4 pt-4">
+                {banners?.map((b, i) => (
+                    <a key={i} href={b.link} target="_blank" rel="noopener noreferrer" className="luxury-card overflow-hidden bg-white shadow-xl border-none transition-transform hover:scale-[1.01] duration-500 w-full md:max-w-[48%]">
+                        <img src={b.img} alt="광고 배너" className="w-full h-auto object-cover" />
+                    </a>
+                ))}
+            </div>
+
+            <footer className="pt-8 pb-4 text-center space-y-6">
+                <p className="text-gray-400 font-bold text-[9px] uppercase tracking-[0.6em] opacity-50">Main Project Partner</p>
+                <h4 className="text-lg md:text-2xl font-black text-[#001a3d] tracking-tighter decoration-luxury decoration-2 whitespace-nowrap px-2">
+                    (주)KCC글라스 홈씨씨 | (주)티유디지털
+                </h4>
+                <div className="max-w-2xl mx-auto space-y-4 text-[11px] font-extrabold text-gray-500 leading-relaxed px-4">
+                    <p className="opacity-80 text-center">서울시 가산디지털1로 83, 파트너스타워1, 802호<br />사업자등록번호: 220-87-15092 ｜ 김정열 대표이사</p>
+                    <div className="bg-gray-100/80 p-4 rounded-[1.5rem] border border-gray-200/50 text-[#001a3d] shadow-inner inline-block min-w-[300px]">
+                        <span className="text-[9px] uppercase tracking-[0.4em] text-[#c5a059] font-black mb-1 inline-block border-b-2 border-[#c5a059]/10 pb-1">Deposit Info</span><br />
+                        <span className="text-base font-black font-outfit">(국민은행) 421737-04-015908</span><br />
+                        <span className="font-black text-[11px] opacity-80 mt-0.5 block tracking-wider">계좌주 : (주)티유디지털</span>
+                    </div>
+                </div>
+            </footer>
+
+            <div className="pt-2 border-t border-gray-100/30 text-center">
+                <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/87d2040aa0130.png" alt="하단 로고" className="w-full max-w-2xl mx-auto object-contain opacity-100 rounded-2xl" />
             </div>
 
             {/* Contact Menu */}
@@ -783,6 +855,378 @@ const CustomerPage = () => {
                     </div>
                 </div>
             )}
+
+            {/* === RENTAL APPLICATION SUB-PAGE (FULL SCREEN MODAL) === */}
+            {
+                isRentalMode && (
+                    <div className="fixed inset-0 z-[200] bg-[#f0f4f9] flex flex-col animate-in slide-in-from-bottom-10 duration-300">
+                        {/* Header */}
+                        <header className="bg-white px-5 py-4 flex items-center justify-between shadow-sm shrink-0 sticky top-0 z-10">
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => {
+                                    if (rentalStep > 1) setRentalStep(prev => prev - 1);
+                                    else if (window.confirm(`${applicationType === 'subscription' ? '구독' : '렌탈'} 신청을 중단하시겠습니까?`)) setIsRentalMode(false);
+                                }} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                                    <ChevronRight size={24} className="rotate-180 text-[#001a3d]" />
+                                </button>
+                                <h2 className="text-lg font-black text-[#001a3d]">{applicationType === 'subscription' ? '스마트 구독 서비스 신청' : '렌탈 서비스 신청'}</h2>
+                            </div>
+                            <div className="text-[10px] font-black text-[#c5a059] bg-[#c5a059]/10 px-3 py-1 rounded-full">
+                                Step {rentalStep} / 4
+                            </div>
+                        </header>
+
+                        {/* Content Body */}
+                        <div className="flex-1 overflow-y-auto p-5 md:p-8 max-w-2xl mx-auto w-full pb-24">
+                            {/* Progress Bar */}
+                            <div className="h-1 bg-gray-200 w-full mb-8 rounded-full overflow-hidden">
+                                <div className="h-full bg-[#001a3d] transition-all duration-500 ease-out" style={{ width: `${(rentalStep / 4) * 100}%` }}></div>
+                            </div>
+
+                            {/* STEP 1: Applicant Info */}
+                            {rentalStep === 1 && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                                    <div className="space-y-2">
+                                        <h3 className="text-2xl font-black text-[#001a3d]">신청자 정보를<br />확인해주세요</h3>
+                                        <p className="text-gray-500 text-sm font-bold">안전한 계약을 위해 본인 정보를 입력해주세요.</p>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-6">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1 block">이름</label>
+                                                <input type="text" value={data.name} disabled className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-black text-[#001a3d] opacity-70" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1 block">연락처</label>
+                                                <input type="text" value={formatPhoneNumber(data.phone)} disabled className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-black text-[#001a3d] opacity-70" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1 block">설치 주소</label>
+                                                <textarea value={data.address} disabled className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-black text-[#001a3d] opacity-70 resize-none h-20" />
+                                            </div>
+                                        </div>
+
+                                        <div className="h-px bg-gray-100"></div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-[11px] font-black text-[#001a3d] uppercase tracking-widest mb-1 block">생년월일 (8자리)</label>
+                                                <input
+                                                    type="tel"
+                                                    maxLength={10}
+                                                    placeholder="예: 1980-01-01"
+                                                    value={rentalForm.birthDate}
+                                                    onChange={(e) => {
+                                                        let val = e.target.value.replace(/\D/g, '');
+                                                        if (val.length >= 5) val = val.slice(0, 4) + '-' + val.slice(4);
+                                                        if (val.length >= 8) val = val.slice(0, 7) + '-' + val.slice(7);
+                                                        setRentalForm({ ...rentalForm, birthDate: val });
+                                                    }}
+                                                    className="w-full bg-white border border-gray-200 focus:border-[#c5a059] rounded-xl px-4 py-3.5 font-black text-lg text-[#001a3d] placeholder:text-gray-300 outline-none transition-all"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[11px] font-black text-[#001a3d] uppercase tracking-widest mb-2 block">성별</label>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {['male', 'female'].map((g) => (
+                                                        <button
+                                                            key={g}
+                                                            onClick={() => setRentalForm({ ...rentalForm, gender: g })}
+                                                            className={`py-3.5 rounded-xl font-black text-sm transition-all border ${rentalForm.gender === g
+                                                                ? 'bg-[#001a3d] text-white border-[#001a3d] shadow-lg scale-[1.02]'
+                                                                : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                                                                }`}
+                                                        >
+                                                            {g === 'male' ? '남성' : '여성'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STEP 2: Amount Selection */}
+                            {rentalStep === 2 && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                                    <div className="space-y-2">
+                                        <h3 className="text-2xl font-black text-[#001a3d]">{applicationType === 'subscription' ? '원하시는 월 구독료를' : '원하시는 월 렌탈료를'}<br />선택해주세요</h3>
+                                        <p className="text-gray-500 text-sm font-bold">선택하신 금액에 따라 선납금이 달라집니다.</p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {(applicationType === 'subscription' ? [24, 36, 48, 60] : [11, 22, 33]).map((val) => {
+                                            const isSubscription = applicationType === 'subscription';
+                                            const calculation = isSubscription
+                                                ? formatKrw(data.subs?.[val] || 0)
+                                                : calculatePackage(data.finalBenefit, val * 10000, val * 500000 / 1.1);
+                                            const isSelected = rentalForm.selectedAmount === val;
+                                            const isDisabled = !isSubscription && calculation === '해당없음';
+
+                                            return (
+                                                <div
+                                                    key={val}
+                                                    onClick={() => {
+                                                        if (!isDisabled) {
+                                                            setRentalForm({ ...rentalForm, selectedAmount: val });
+                                                        }
+                                                    }}
+                                                    className={`p-6 rounded-[2rem] border-2 transition-all relative overflow-hidden ${isDisabled ? 'cursor-not-allowed opacity-50 bg-gray-50 border-gray-100' : 'cursor-pointer'} ${isSelected
+                                                        ? 'bg-[#001a3d] border-[#001a3d] text-white shadow-xl scale-[1.02]'
+                                                        : isDisabled ? '' : 'bg-white border-gray-100 text-[#001a3d] hover:border-gray-200'
+                                                        }`}
+                                                >
+                                                    <div className="flex justify-between items-center relative z-10">
+                                                        <div>
+                                                            <p className={`text-[11px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'text-[#c5a059]' : 'text-gray-400'}`}>Monthly Pay</p>
+                                                            <h4 className="text-2xl font-black">{isSubscription ? `${val}개월 약정` : `월 ${val}만원`}</h4>
+                                                        </div>
+                                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-[#c5a059] bg-[#c5a059]' : 'border-gray-200'}`}>
+                                                            {isSelected && <CheckCircle size={14} className="text-[#001a3d]" />}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`mt-6 pt-6 border-t border-dashed ${isSelected ? 'border-white/10' : 'border-gray-100'}`}>
+                                                        <div className="flex justify-between items-end">
+                                                            <span className={`text-xs font-bold ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>{isSubscription ? '월 구독료' : '초기 선납금'}</span>
+                                                            <span className="text-xl font-black font-outfit">{isSubscription ? calculation : calculation}</span>
+                                                        </div>
+                                                        {isDisabled && (
+                                                            <p className="text-[10px] text-red-400 mt-2 font-bold">* 렌탈 총액이 견적가보다 큽니다. 선택 불가.</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STEP 3: Document Upload */}
+                            {rentalStep === 3 && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                                    <div className="space-y-2">
+                                        <h3 className="text-2xl font-black text-[#001a3d]">필수 서류를<br />등록해주세요</h3>
+                                        <p className="text-gray-500 text-sm font-bold">부동산 소유 형태에 따라 필요한 서류가 다릅니다.</p>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        {/* Type Selector */}
+                                        <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex gap-1">
+                                            {[
+                                                { id: 'own_own', label: '본인 소유' },
+                                                { id: 'family_own', label: '가족 소유' },
+                                                { id: 'move_own', label: '이사 예정' }
+                                            ].map(t => (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => setRentalForm({ ...rentalForm, ownershipType: t.id })}
+                                                    className={`flex-1 py-3 text-[11px] font-black rounded-xl transition-all ${rentalForm.ownershipType === t.id
+                                                        ? 'bg-[#001a3d] text-white shadow-md'
+                                                        : 'text-gray-400 hover:text-gray-600'
+                                                        }`}
+                                                >
+                                                    {t.label}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Upload Area */}
+                                        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-6">
+                                            {/* Dynamic Content Based on Type */}
+                                            {/* 본인 소유 */}
+                                            {rentalForm.ownershipType === 'own_own' && (
+                                                <div className="space-y-6">
+                                                    {[
+                                                        { key: 'registry', label: '등기부등본', desc: '본인 명의의 부동산임을 증명해야 합니다.', icon: <Upload size={18} /> },
+                                                        { key: 'id_card', label: '신분증 사본', desc: '신원을 확인하기 위한 서류입니다.', icon: <ShieldCheck size={18} /> },
+                                                        { key: 'bank_book', label: '통장사본(자동이체용)', desc: '구독/렌탈료 자동이체 설정을 위한 서류입니다.', icon: <Upload size={18} /> }
+                                                    ].map(doc => (
+                                                        <div key={doc.key} className="space-y-4">
+                                                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs font-bold leading-relaxed">
+                                                                📌 <b>{doc.label}</b>을 첨부해주세요.<br />
+                                                                <span className="opacity-70 font-medium">{doc.desc}</span>
+                                                            </div>
+                                                            <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
+                                                                <input type="file" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(doc.key, e)} />
+                                                                <div className="mx-auto text-gray-300 mb-2 group-hover:text-[#c5a059] transition-colors flex justify-center">{doc.icon}</div>
+                                                                <p className="text-xs font-black text-gray-500">
+                                                                    {doc.label} 사진/파일 업로드
+                                                                    <span className="block text-[10px] text-gray-400 font-medium mt-1">(여러 장 선택 가능)</span>
+                                                                </p>
+                                                            </div>
+                                                            {rentalForm.files[doc.key] && rentalForm.files[doc.key].map((f, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg text-xs font-bold text-gray-600 border border-gray-100">
+                                                                    <span className="truncate flex-1">{f.name}</span>
+                                                                    <button onClick={() => removeFile(doc.key, i)} className="text-gray-400 hover:text-red-500 p-1"><X size={14} /></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* 가족 소유 */}
+                                            {rentalForm.ownershipType === 'family_own' && (
+                                                <div className="space-y-6">
+                                                    {[
+                                                        { key: 'registry', label: '등기부등본', desc: '부동산 소유주 확인을 위한 서류입니다.', icon: <Upload size={18} /> },
+                                                        { key: 'family', label: '가족관계증명서', desc: '소유주와의 관계를 증명해야 합니다.', icon: <Upload size={18} /> },
+                                                        { key: 'id_card', label: '신분증 사본', desc: '신원을 확인하기 위한 서류입니다.', icon: <ShieldCheck size={18} /> },
+                                                        { key: 'bank_book', label: '통장사본(자동이체용)', desc: '구독/렌탈료 자동이체 설정을 위한 서류입니다.', icon: <Upload size={18} /> }
+                                                    ].map(doc => (
+                                                        <div key={doc.key} className="space-y-4">
+                                                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs font-bold leading-relaxed">
+                                                                📌 <b>{doc.label}</b>을 첨부해주세요.<br />
+                                                                <span className="opacity-70 font-medium">{doc.desc}</span>
+                                                            </div>
+                                                            <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
+                                                                <input type="file" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(doc.key, e)} />
+                                                                <div className="mx-auto text-gray-300 mb-2 group-hover:text-[#c5a059] transition-colors flex justify-center">{doc.icon}</div>
+                                                                <p className="text-xs font-black text-gray-500">
+                                                                    {doc.label} 사진/파일 업로드
+                                                                    <span className="block text-[10px] text-gray-400 font-medium mt-1">(여러 장 선택 가능)</span>
+                                                                </p>
+                                                            </div>
+                                                            {rentalForm.files[doc.key] && rentalForm.files[doc.key].map((f, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg text-xs font-bold text-gray-600 border border-gray-100">
+                                                                    <span className="truncate flex-1">{f.name}</span>
+                                                                    <button onClick={() => removeFile(doc.key, i)} className="text-gray-400 hover:text-red-500 p-1"><X size={14} /></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* 이사 예정 */}
+                                            {rentalForm.ownershipType === 'move_own' && (
+                                                <div className="space-y-6">
+                                                    {[
+                                                        { key: 'contract', label: '부동산 매매계약서', desc: '이사 예정인 주소지의 계약 증빙이 필요합니다.', icon: <Upload size={18} /> },
+                                                        { key: 'id_card', label: '신분증 사본', desc: '신원을 확인하기 위한 서류입니다.', icon: <ShieldCheck size={18} /> },
+                                                        { key: 'bank_book', label: '통장사본(자동이체용)', desc: '구독/렌탈료 자동이체 설정을 위한 서류입니다.', icon: <Upload size={18} /> }
+                                                    ].map(doc => (
+                                                        <div key={doc.key} className="space-y-4">
+                                                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs font-bold leading-relaxed">
+                                                                📌 <b>{doc.label}</b>을 첨부해주세요.<br />
+                                                                <span className="opacity-70 font-medium">{doc.desc}</span>
+                                                            </div>
+                                                            <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
+                                                                <input type="file" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(doc.key, e)} />
+                                                                <div className="mx-auto text-gray-300 mb-2 group-hover:text-[#c5a059] transition-colors flex justify-center">{doc.icon}</div>
+                                                                <p className="text-xs font-black text-gray-500">
+                                                                    {doc.label} 사진/파일 업로드
+                                                                    <span className="block text-[10px] text-gray-400 font-medium mt-1">(여러 장 선택 가능)</span>
+                                                                </p>
+                                                            </div>
+                                                            {rentalForm.files[doc.key] && rentalForm.files[doc.key].map((f, i) => (
+                                                                <div key={i} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg text-xs font-bold text-gray-600 border border-gray-100">
+                                                                    <span className="truncate flex-1">{f.name}</span>
+                                                                    <button onClick={() => removeFile(doc.key, i)} className="text-gray-400 hover:text-red-500 p-1"><X size={14} /></button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STEP 4: Agreements */}
+                            {rentalStep === 4 && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                                    <div className="space-y-2">
+                                        <h3 className="text-2xl font-black text-[#001a3d]">마지막으로<br />동의가 필요해요</h3>
+                                        <p className="text-gray-500 text-sm font-bold">신용조회를 위해 약관 확인이 필요합니다.</p>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-8">
+                                        <div className="flex flex-col items-center justify-center text-center space-y-6 py-8">
+                                            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shadow-inner">
+                                                <ShieldCheck size={32} />
+                                            </div>
+                                            <div className="space-y-4">
+                                                <p className="text-sm font-bold text-gray-600 leading-relaxed text-center">
+                                                    - 아래 링크를 클릭해서 모바일 신용조회 동의를 진행해주세요.<br />
+                                                    - 아래 링크 클릭 시 앞에 입력한 내용은 자동 저장 됩니다.<br />
+                                                    - 동의 완료 후 별도 신용조회 후 담당자가 안내드릴 예정입니다.
+                                                </p>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (window.confirm(`${applicationType === 'subscription' ? '구독' : '렌탈'} 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.`)) {
+                                                            setIsSubmitting(true);
+                                                            const res = applicationType === 'subscription'
+                                                                ? await submitSubscriptionApplication(data, rentalForm)
+                                                                : await submitRentalApplication(data, rentalForm);
+                                                            setIsSubmitting(false);
+
+                                                            if (res.success) {
+                                                                const successMsg = applicationType === 'subscription'
+                                                                    ? `구독 신청이 정상적으로 저장되었습니다.\n이어서 열리는 페이지를 통해 모바일 신용조회 동의를 반드시 진행해주세요.\n신용조회 동의 확인 후 담당자가 별도 연락 드릴 예정입니다.(1~2일 소요)`
+                                                                    : `렌탈 신청이 정상적으로 완료되었습니다.\n신청 가능 여부를 확인한 후 담당자를 통해 연락드리겠습니다.\n감사합니다.(1~2일 소요)`;
+                                                                alert(successMsg);
+                                                                window.open("https://m.hankookcapital.co.kr/ib20/mnu/HKMUCR010101", "_blank");
+                                                                setIsRentalMode(false);
+                                                                setApplicationType(null);
+                                                                setRentalStep(1);
+                                                            } else {
+                                                                alert("신청 중 오류가 발생했습니다: " + res.message);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="inline-flex items-center gap-2 bg-[#001a3d] text-white px-8 py-4 rounded-2xl font-black text-base hover:bg-blue-900 transition-all shadow-lg active:scale-95 text-center leading-tight"
+                                                >
+                                                    {isSubmitting ? <Loader2 className="animate-spin" /> : (
+                                                        <>
+                                                            지금까지 내용 저장하고<br />
+                                                            모바일 신용조회 동의하기 <ExternalLink size={18} />
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bottom Action Button */}
+                        {rentalStep < 4 && (
+                            <div className="p-5 md:p-8 bg-white border-t border-gray-100 safe-area-bottom">
+                                <button
+                                    disabled={(() => {
+                                        if (rentalStep === 1) return !rentalForm.birthDate || rentalForm.birthDate.length < 10 || !rentalForm.gender;
+                                        if (rentalStep === 2) {
+                                            if (applicationType === 'subscription') return !rentalForm.selectedAmount;
+                                            const calc = calculatePackage(data.finalBenefit, rentalForm.selectedAmount * 10000, rentalForm.selectedAmount * 500000 / 1.1);
+                                            return !rentalForm.selectedAmount || calc === '해당없음';
+                                        }
+                                        if (rentalStep === 3) {
+                                            if (rentalForm.ownershipType === 'own_own') return rentalForm.files.registry.length === 0 || rentalForm.files.id_card.length === 0 || rentalForm.files.bank_book.length === 0;
+                                            if (rentalForm.ownershipType === 'family_own') return rentalForm.files.registry.length === 0 || rentalForm.files.family.length === 0 || rentalForm.files.id_card.length === 0 || rentalForm.files.bank_book.length === 0;
+                                            if (rentalForm.ownershipType === 'move_own') return rentalForm.files.contract.length === 0 || rentalForm.files.id_card.length === 0 || rentalForm.files.bank_book.length === 0;
+                                        }
+                                        return false;
+                                    })()}
+                                    onClick={async () => {
+                                        if (rentalStep < 4) {
+                                            setRentalStep(prev => prev + 1);
+                                        }
+                                    }}
+                                    className="w-full bg-[#001a3d] text-white py-4 rounded-2xl text-lg font-black shadow-xl hover:bg-blue-900 active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
+                                >
+                                    {isSubmitting ? <Loader2 className="animate-spin" /> : (rentalStep === 4 ? '신청 완료하기' : '다음으로')}
+                                    {!isSubmitting && rentalStep < 4 && <ChevronRight size={20} />}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )
+            }
         </div>
     );
 };
