@@ -441,7 +441,9 @@ const CustomerPage = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full relative z-10">
                                 {[11, 22, 33].map(val => (
                                     <div key={val} className="bg-white/[0.08] backdrop-blur-md border border-white/10 p-4 md:p-6 rounded-2xl transition-all text-center group flex flex-col justify-center shadow-inner">
-                                        <div className="text-[#c5a059] text-sm md:text-base font-black mb-1 md:mb-2 tracking-tight group-hover:scale-105 transition-transform">월 {val}만원 고정</div>
+                                        <div className="text-[#c5a059] text-sm md:text-base font-black mb-1 md:mb-2 tracking-tight group-hover:scale-105 transition-transform">
+                                            월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정
+                                        </div>
                                         <div className="flex flex-row md:flex-col items-center justify-center gap-2 md:gap-0.5">
                                             <p className="text-[8px] text-white/40 font-black tracking-widest uppercase">선납금</p>
                                             <p className="text-lg md:text-xl font-black text-white font-outfit whitespace-nowrap">{calculatePackage(data.finalBenefit, val * 10000, val * 500000 / 1.1)}</p>

@@ -907,7 +907,7 @@ const AdminPage = () => {
                                         <div className="grid grid-cols-3 gap-3">
                                             {[11, 22, 33].map(val => (
                                                 <div key={val} className="p-3 rounded-xl text-center bg-gray-50 border border-gray-100 transition-all hover:bg-white hover:shadow-md hover:border-[#c5a059]/30">
-                                                    <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val}만원 고정</p>
+                                                    <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정</p>
                                                     <p className="text-sm font-black text-[#001a3d]">
                                                         {calculatePackage(calculations.finalBenefit, val * 10000, val * 500000 / 1.1)}
                                                     </p>
@@ -1465,7 +1465,7 @@ const AdminPage = () => {
                                 <div className="grid grid-cols-3 gap-3">
                                     {[11, 22, 33].map(val => (
                                         <div key={val} className="p-3 rounded-xl text-center bg-white border border-gray-100">
-                                            <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val}만원 고정</p>
+                                            <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정</p>
                                             <p className="text-sm font-black text-[#001a3d]">
                                                 {calculatePackage(Number(selectedQuote.finalBenefit), val * 10000, val * 500000 / 1.1)}
                                             </p>
