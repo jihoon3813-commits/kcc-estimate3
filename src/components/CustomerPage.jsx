@@ -983,7 +983,9 @@ const CustomerPage = () => {
                                                     <div className="flex justify-between items-center relative z-10">
                                                         <div>
                                                             <p className={`text-[11px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'text-[#c5a059]' : 'text-gray-400'}`}>Monthly Pay</p>
-                                                            <h4 className="text-2xl font-black">{isSubscription ? `${val}개월 약정` : `월 ${val}만원`}</h4>
+                                                            <h4 className="text-2xl font-black">
+                                                                {isSubscription ? `${val}개월 약정` : `월 ${val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원`}
+                                                            </h4>
                                                         </div>
                                                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-[#c5a059] bg-[#c5a059]' : 'border-gray-200'}`}>
                                                             {isSelected && <CheckCircle size={14} className="text-[#001a3d]" />}

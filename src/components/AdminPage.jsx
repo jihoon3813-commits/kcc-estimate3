@@ -1184,8 +1184,9 @@ const AdminPage = () => {
                                                 <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.birthDate}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.gender === 'male' ? '남성' : '여성'}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.ownershipType === 'own_own' ? '본인소유' : '이사예정'}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-blue-600">{item.selectedAmount}만원</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-blue-600">
+                                                    {item.selectedAmount === 11 ? '111,000' : item.selectedAmount === 22 ? '222,000' : item.selectedAmount === 33 ? '333,000' : item.selectedAmount}{item.selectedAmount >= 11 && item.selectedAmount <= 33 ? '원' : '만원'}
+                                                </td>
                                                 <td className="px-4 py-4">
                                                     <div className="space-y-1.5 min-w-[240px]">
                                                         {item.files.map((file, fIdx) => (
@@ -1217,115 +1218,118 @@ const AdminPage = () => {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* TAB CONTENT: SUBSCRIPTION APPLICATIONS (NEW) */}
-            {activeTab === 'subscription' && (
-                <div className="space-y-6 animate-in fade-in">
-                    {/* Filters */}
-                    <div className="glass-card p-4 rounded-[2rem] flex flex-wrap gap-4 items-center">
-                        <div className="flex-1 min-w-[200px] relative">
-                            <input
-                                type="text"
-                                placeholder="고객명, 전화번호 검색"
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#2c3e50]/50 transition-all font-bold text-sm"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <Search size={18} />
+            {
+                activeTab === 'subscription' && (
+                    <div className="space-y-6 animate-in fade-in">
+                        {/* Filters */}
+                        <div className="glass-card p-4 rounded-[2rem] flex flex-wrap gap-4 items-center">
+                            <div className="flex-1 min-w-[200px] relative">
+                                <input
+                                    type="text"
+                                    placeholder="고객명, 전화번호 검색"
+                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-[#2c3e50]/50 transition-all font-bold text-sm"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                    <Search size={18} />
+                                </div>
+                            </div>
+                            <select
+                                className="bg-gray-50 px-4 py-3 rounded-xl text-sm font-black text-[#001a3d] border-none cursor-pointer focus:ring-2 focus:ring-[#2c3e50]/50"
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(e.target.value)}
+                            >
+                                <option value="desc">최신순</option>
+                                <option value="asc">과거순</option>
+                            </select>
+                            <button
+                                onClick={fetchList}
+                                className="p-3 bg-gray-50 text-gray-500 hover:text-[#2c3e50] hover:bg-blue-50 rounded-xl transition-all"
+                            >
+                                <RefreshCw size={18} />
+                            </button>
+                        </div>
+
+                        {/* Table View */}
+                        <div className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-[#1a3a3a] text-white">
+                                        <tr>
+                                            {[
+                                                "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
+                                            ].map((th, i) => (
+                                                <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {filteredSubscriptionList.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="9" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
+                                            </tr>
+                                        ) : (
+                                            filteredSubscriptionList.map((item, idx) => (
+                                                <tr key={idx} className="hover:bg-teal-50/30 transition-colors">
+                                                    <td className="px-4 py-4 text-center font-bold text-gray-300">{filteredSubscriptionList.length - idx}</td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap">
+                                                        <select
+                                                            value={item.status || '접수'}
+                                                            onChange={(e) => handleSubscriptionStatusChange(item, e.target.value)}
+                                                            className={`text-[10px] font-black px-2 py-1 rounded-lg border-none cursor-pointer focus:ring-2 focus:ring-[#1a3a3a]/30 transition-all ${SUBSCRIPTION_STATUS_OPTIONS.find(opt => opt.value === (item.status || '접수'))?.color || 'bg-gray-100 text-gray-600'}`}
+                                                        >
+                                                            {SUBSCRIPTION_STATUS_OPTIONS.map(opt => (
+                                                                <option key={opt.value} value={opt.value} className="bg-white text-gray-700">{opt.label}</option>
+                                                            ))}
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-400 text-[11px]">{new Date(item.createdAt || Date.now()).toLocaleString()}</td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600 hover:text-teal-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.birthDate}</td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.gender === 'male' ? '남성' : '여성'}</td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">
+                                                        {item.ownershipType === 'own_own' ? '본인소유' : (item.ownershipType === 'family_own' ? '가족소유' : '이사예정')}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600">{item.selectedAmount}개월 ({formatKrw(item.monthlyAmount || 0)})</td>
+                                                    <td className="px-4 py-4">
+                                                        <div className="space-y-1.5 min-w-[240px]">
+                                                            {item.files.map((file, fIdx) => (
+                                                                <a
+                                                                    key={fIdx}
+                                                                    href={file.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-50 hover:bg-teal-50 rounded-lg group transition-all border border-gray-100"
+                                                                >
+                                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                                        <span className="text-[10px] font-black text-white bg-[#c5a059] px-1.5 py-0.5 rounded shrink-0">
+                                                                            {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : (file.category === 'bank_book' ? '통장' : '기타'))))}
+                                                                        </span>
+                                                                        <span className="text-[11px] font-bold text-gray-600 truncate group-hover:text-teal-600 underline-offset-2 group-hover:underline">
+                                                                            {file.name}
+                                                                        </span>
+                                                                    </div>
+                                                                    <Download size={12} className="text-gray-300 group-hover:text-teal-500 shrink-0" />
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <select
-                            className="bg-gray-50 px-4 py-3 rounded-xl text-sm font-black text-[#001a3d] border-none cursor-pointer focus:ring-2 focus:ring-[#2c3e50]/50"
-                            value={sortOrder}
-                            onChange={(e) => setSortOrder(e.target.value)}
-                        >
-                            <option value="desc">최신순</option>
-                            <option value="asc">과거순</option>
-                        </select>
-                        <button
-                            onClick={fetchList}
-                            className="p-3 bg-gray-50 text-gray-500 hover:text-[#2c3e50] hover:bg-blue-50 rounded-xl transition-all"
-                        >
-                            <RefreshCw size={18} />
-                        </button>
                     </div>
-
-                    {/* Table View */}
-                    <div className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-[#1a3a3a] text-white">
-                                    <tr>
-                                        {[
-                                            "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
-                                        ].map((th, i) => (
-                                            <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {filteredSubscriptionList.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="9" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
-                                        </tr>
-                                    ) : (
-                                        filteredSubscriptionList.map((item, idx) => (
-                                            <tr key={idx} className="hover:bg-teal-50/30 transition-colors">
-                                                <td className="px-4 py-4 text-center font-bold text-gray-300">{filteredSubscriptionList.length - idx}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap">
-                                                    <select
-                                                        value={item.status || '접수'}
-                                                        onChange={(e) => handleSubscriptionStatusChange(item, e.target.value)}
-                                                        className={`text-[10px] font-black px-2 py-1 rounded-lg border-none cursor-pointer focus:ring-2 focus:ring-[#1a3a3a]/30 transition-all ${SUBSCRIPTION_STATUS_OPTIONS.find(opt => opt.value === (item.status || '접수'))?.color || 'bg-gray-100 text-gray-600'}`}
-                                                    >
-                                                        {SUBSCRIPTION_STATUS_OPTIONS.map(opt => (
-                                                            <option key={opt.value} value={opt.value} className="bg-white text-gray-700">{opt.label}</option>
-                                                        ))}
-                                                    </select>
-                                                </td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-400 text-[11px]">{new Date(item.createdAt || Date.now()).toLocaleString()}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600 hover:text-teal-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.birthDate}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.gender === 'male' ? '남성' : '여성'}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">
-                                                    {item.ownershipType === 'own_own' ? '본인소유' : (item.ownershipType === 'family_own' ? '가족소유' : '이사예정')}
-                                                </td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600">{item.selectedAmount}개월 ({formatKrw(item.monthlyAmount || 0)})</td>
-                                                <td className="px-4 py-4">
-                                                    <div className="space-y-1.5 min-w-[240px]">
-                                                        {item.files.map((file, fIdx) => (
-                                                            <a
-                                                                key={fIdx}
-                                                                href={file.url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-50 hover:bg-teal-50 rounded-lg group transition-all border border-gray-100"
-                                                            >
-                                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                                    <span className="text-[10px] font-black text-white bg-[#c5a059] px-1.5 py-0.5 rounded shrink-0">
-                                                                        {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : (file.category === 'bank_book' ? '통장' : '기타'))))}
-                                                                    </span>
-                                                                    <span className="text-[11px] font-bold text-gray-600 truncate group-hover:text-teal-600 underline-offset-2 group-hover:underline">
-                                                                        {file.name}
-                                                                    </span>
-                                                                </div>
-                                                                <Download size={12} className="text-gray-300 group-hover:text-teal-500 shrink-0" />
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Loading Overlay */}
             {
@@ -1347,163 +1351,165 @@ const AdminPage = () => {
             }
 
             {/* Detail Modal */}
-            {selectedQuote && (
-                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4" onClick={() => setSelectedQuote(null)}>
-                    <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-[#001a3d] text-white">
-                            <div>
-                                <h3 className="text-xl font-black">{selectedQuote.name} 고객님 견적 상세</h3>
-                                <p className="text-xs text-white/60 font-bold mt-1">{selectedQuote.date} | {selectedQuote.branch}</p>
-                            </div>
-                            <button onClick={() => setSelectedQuote(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                                <span className="sr-only">Close</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                            </button>
-                        </div>
-                        <div className="p-6 overflow-y-auto bg-gray-50 flex-1">
-                            {/* Summary Cards */}
-                            {/* 1. Customer Info */}
-                            <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
-                                <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
-                                    기본 정보
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100">
-                                        <p className="text-[10px] text-gray-400 font-bold mb-1">견적 구분</p>
-                                        <p className={`text-sm font-black ${selectedQuote.type === '최종견적' ? 'text-[#001a3d]' :
-                                            selectedQuote.type === '책임견적' ? 'text-[#c5a059]' :
-                                                'text-gray-500'
-                                            }`}>{selectedQuote.type}</p>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100">
-                                        <p className="text-[10px] text-gray-400 font-bold mb-1">고객 연락처</p>
-                                        <p className="text-sm font-bold text-gray-700 font-mono">{selectedQuote.phone}</p>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100 md:col-span-1">
-                                        <p className="text-[10px] text-gray-400 font-bold mb-1">설치 주소</p>
-                                        <p className="text-sm font-bold text-gray-700 break-keep leading-snug">{selectedQuote.address}</p>
-                                    </div>
+            {
+                selectedQuote && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4" onClick={() => setSelectedQuote(null)}>
+                        <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-[#001a3d] text-white">
+                                <div>
+                                    <h3 className="text-xl font-black">{selectedQuote.name} 고객님 견적 상세</h3>
+                                    <p className="text-xs text-white/60 font-bold mt-1">{selectedQuote.date} | {selectedQuote.branch}</p>
                                 </div>
+                                <button onClick={() => setSelectedQuote(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                                    <span className="sr-only">Close</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                </button>
                             </div>
-
-                            {/* 2. Financial Summary */}
-                            <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
-                                <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
-                                    가격 및 마진 분석
-                                </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {/* Row 1 */}
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100">
-                                        <p className="text-[10px] text-gray-400 font-bold mb-1">공급가 (VAT포함)</p>
-                                        <p className="text-sm font-medium text-gray-600">{formatKrw(selectedQuote.kccPrice)}</p>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100">
-                                        <p className="text-[10px] text-gray-400 font-bold mb-1">할인율</p>
-                                        <p className="text-sm font-bold text-red-500">{selectedQuote.discountRate}%</p>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100">
-                                        <p className="text-[10px] text-gray-400 font-bold mb-1">추가 할인금액</p>
-                                        <p className="text-sm font-bold text-red-500">{formatKrw(selectedQuote.extraDiscount)}</p>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100">
-                                        <p className="text-[10px] text-gray-400 font-bold mb-1">마진율</p>
-                                        <p className={`text-sm font-black ${Number(selectedQuote.marginRate) >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{Number(selectedQuote.marginRate).toFixed(1)}%</p>
-                                    </div>
-
-                                    {/* Row 2 (Key Figures) */}
-                                    <div className="bg-white p-4 rounded-xl border border-gray-200 md:col-span-1">
-                                        <p className="text-xs text-gray-400 font-bold mb-1">최종 견적가</p>
-                                        <p className="text-xl font-black text-gray-800">{formatKrw(selectedQuote.finalQuote)}</p>
-                                    </div>
-                                    <div className="bg-[#001a3d] p-4 rounded-xl shadow-lg md:col-span-1">
-                                        <p className="text-xs text-white/60 font-bold mb-1">고객 실 부담금</p>
-                                        <p className="text-xl font-black text-white">{formatKrw(selectedQuote.finalBenefit)}</p>
-                                    </div>
-                                    <div className="bg-green-50 p-4 rounded-xl border border-green-100 md:col-span-1">
-                                        <p className="text-xs text-green-600 font-bold mb-1">마진 금액</p>
-                                        <p className="text-xl font-black text-green-700">{formatKrw(selectedQuote.marginAmt)}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 3. Subscription & Others */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                {/* Subscriptions */}
-                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                            <div className="p-6 overflow-y-auto bg-gray-50 flex-1">
+                                {/* Summary Cards */}
+                                {/* 1. Customer Info */}
+                                <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
                                     <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
-                                        렌탈기간별 월 납입금
+                                        기본 정보
                                     </h4>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {[24, 36, 48, 60].map(m => (
-                                            <div key={m} className={`p-2 rounded-lg flex justify-between items-center ${m === 60 ? 'bg-[#c5a059]/10 border border-[#c5a059]/30' : 'bg-white border border-gray-100'}`}>
-                                                <span className="text-[10px] font-bold text-gray-500">{m}개월</span>
-                                                <span className={`text-sm font-black ${m === 60 ? 'text-[#c5a059]' : 'text-gray-700'}`}>
-                                                    {selectedQuote[`sub${m}`] ? Number(selectedQuote[`sub${m}`]).toLocaleString() : 0}
-                                                </span>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold mb-1">견적 구분</p>
+                                            <p className={`text-sm font-black ${selectedQuote.type === '최종견적' ? 'text-[#001a3d]' :
+                                                selectedQuote.type === '책임견적' ? 'text-[#c5a059]' :
+                                                    'text-gray-500'
+                                                }`}>{selectedQuote.type}</p>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold mb-1">고객 연락처</p>
+                                            <p className="text-sm font-bold text-gray-700 font-mono">{selectedQuote.phone}</p>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-xl border border-gray-100 md:col-span-1">
+                                            <p className="text-[10px] text-gray-400 font-bold mb-1">설치 주소</p>
+                                            <p className="text-sm font-bold text-gray-700 break-keep leading-snug">{selectedQuote.address}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 2. Financial Summary */}
+                                <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
+                                    <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
+                                        가격 및 마진 분석
+                                    </h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {/* Row 1 */}
+                                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold mb-1">공급가 (VAT포함)</p>
+                                            <p className="text-sm font-medium text-gray-600">{formatKrw(selectedQuote.kccPrice)}</p>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold mb-1">할인율</p>
+                                            <p className="text-sm font-bold text-red-500">{selectedQuote.discountRate}%</p>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold mb-1">추가 할인금액</p>
+                                            <p className="text-sm font-bold text-red-500">{formatKrw(selectedQuote.extraDiscount)}</p>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold mb-1">마진율</p>
+                                            <p className={`text-sm font-black ${Number(selectedQuote.marginRate) >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{Number(selectedQuote.marginRate).toFixed(1)}%</p>
+                                        </div>
+
+                                        {/* Row 2 (Key Figures) */}
+                                        <div className="bg-white p-4 rounded-xl border border-gray-200 md:col-span-1">
+                                            <p className="text-xs text-gray-400 font-bold mb-1">최종 견적가</p>
+                                            <p className="text-xl font-black text-gray-800">{formatKrw(selectedQuote.finalQuote)}</p>
+                                        </div>
+                                        <div className="bg-[#001a3d] p-4 rounded-xl shadow-lg md:col-span-1">
+                                            <p className="text-xs text-white/60 font-bold mb-1">고객 실 부담금</p>
+                                            <p className="text-xl font-black text-white">{formatKrw(selectedQuote.finalBenefit)}</p>
+                                        </div>
+                                        <div className="bg-green-50 p-4 rounded-xl border border-green-100 md:col-span-1">
+                                            <p className="text-xs text-green-600 font-bold mb-1">마진 금액</p>
+                                            <p className="text-xl font-black text-green-700">{formatKrw(selectedQuote.marginAmt)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 3. Subscription & Others */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                    {/* Subscriptions */}
+                                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                                        <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
+                                            렌탈기간별 월 납입금
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[24, 36, 48, 60].map(m => (
+                                                <div key={m} className={`p-2 rounded-lg flex justify-between items-center ${m === 60 ? 'bg-[#c5a059]/10 border border-[#c5a059]/30' : 'bg-white border border-gray-100'}`}>
+                                                    <span className="text-[10px] font-bold text-gray-500">{m}개월</span>
+                                                    <span className={`text-sm font-black ${m === 60 ? 'text-[#c5a059]' : 'text-gray-700'}`}>
+                                                        {selectedQuote[`sub${m}`] ? Number(selectedQuote[`sub${m}`]).toLocaleString() : 0}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Others */}
+                                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
+                                        <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
+                                            기타 정보
+                                        </h4>
+                                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold mb-1">비고 (Remark)</p>
+                                            <p className="text-sm font-medium text-gray-600">{selectedQuote.remark || '-'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 4. 60-Month Rental Fixed Package */}
+                                <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
+                                    <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
+                                        60개월 렌탈 고정형 패키지 (선납금)
+                                    </h4>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[11, 22, 33].map(val => (
+                                            <div key={val} className="p-3 rounded-xl text-center bg-white border border-gray-100">
+                                                <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정</p>
+                                                <p className="text-sm font-black text-[#001a3d]">
+                                                    {calculatePackage(Number(selectedQuote.finalBenefit), val * 10000, val * 500000 / 1.1)}
+                                                </p>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-
-                                {/* Others */}
-                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
-                                    <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
-                                        기타 정보
-                                    </h4>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-100">
-                                        <p className="text-[10px] text-gray-400 font-bold mb-1">비고 (Remark)</p>
-                                        <p className="text-sm font-medium text-gray-600">{selectedQuote.remark || '-'}</p>
-                                    </div>
-                                </div>
                             </div>
-
-                            {/* 4. 60-Month Rental Fixed Package */}
-                            <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
-                                <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
-                                    60개월 렌탈 고정형 패키지 (선납금)
-                                </h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {[11, 22, 33].map(val => (
-                                        <div key={val} className="p-3 rounded-xl text-center bg-white border border-gray-100">
-                                            <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정</p>
-                                            <p className="text-sm font-black text-[#001a3d]">
-                                                {calculatePackage(Number(selectedQuote.finalBenefit), val * 10000, val * 500000 / 1.1)}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-4 bg-white border-t border-gray-100 flex justify-between gap-3">
-                            <button
-                                onClick={() => {
-                                    const url = `${window.location.origin}/?n=${encodeURIComponent(selectedQuote.name)}&p=${encodeURIComponent(selectedQuote.phone)}&t=${encodeURIComponent(selectedQuote.type)}`;
-                                    window.open(url, '_blank');
-                                }}
-                                className="flex-1 py-4 bg-[#001a3d] text-white font-black rounded-xl hover:bg-blue-900 transition-colors flex items-center justify-center gap-2 text-base"
-                            >
-                                <ExternalLink size={20} /> 발송견적 (WEB)
-                            </button>
-
-                            {selectedQuote.pdfUrl && (
-                                <a
-                                    href={selectedQuote.pdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex-1 py-4 bg-[#c5a059] text-white font-black rounded-xl hover:bg-[#b08d48] transition-colors flex items-center justify-center gap-2 text-base"
+                            <div className="p-4 bg-white border-t border-gray-100 flex justify-between gap-3">
+                                <button
+                                    onClick={() => {
+                                        const url = `${window.location.origin}/?n=${encodeURIComponent(selectedQuote.name)}&p=${encodeURIComponent(selectedQuote.phone)}&t=${encodeURIComponent(selectedQuote.type)}`;
+                                        window.open(url, '_blank');
+                                    }}
+                                    className="flex-1 py-4 bg-[#001a3d] text-white font-black rounded-xl hover:bg-blue-900 transition-colors flex items-center justify-center gap-2 text-base"
                                 >
-                                    <FileText size={20} /> PDF 다운로드
-                                </a>
-                            )}
+                                    <ExternalLink size={20} /> 발송견적 (WEB)
+                                </button>
 
-                            <button onClick={() => setSelectedQuote(null)} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl transition-colors text-base">
-                                닫기
-                            </button>
+                                {selectedQuote.pdfUrl && (
+                                    <a
+                                        href={selectedQuote.pdfUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 py-4 bg-[#c5a059] text-white font-black rounded-xl hover:bg-[#b08d48] transition-colors flex items-center justify-center gap-2 text-base"
+                                    >
+                                        <FileText size={20} /> PDF 다운로드
+                                    </a>
+                                )}
+
+                                <button onClick={() => setSelectedQuote(null)} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl transition-colors text-base">
+                                    닫기
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
