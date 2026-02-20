@@ -238,6 +238,24 @@ export const getSubscriptionApplicationList = async () => {
     }
 };
 
+export const updateRentalStatus = async (id, status) => {
+    try {
+        await convex.mutation(api.rentals.updateStatus, { id, status });
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+export const updateSubscriptionStatus = async (id, status) => {
+    try {
+        await convex.mutation(api.subscriptions.updateStatus, { id, status });
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
 export const submitSubscriptionApplication = async (customerData, form) => {
     try {
         var uploadedFiles = [];

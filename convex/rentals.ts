@@ -30,7 +30,7 @@ export const submitApplication = mutation({
     handler: async (ctx, args) => {
         const id = await ctx.db.insert("rental_applications", {
             ...args,
-            status: "pending",
+            status: "접수",
             createdAt: new Date().toISOString(),
         });
 
@@ -67,5 +67,16 @@ export const listApplications = query({
         }
 
         return results;
+    },
+});
+
+export const updateStatus = mutation({
+    args: {
+        id: v.id("rental_applications"),
+        status: v.string(),
+    },
+    handler: async (ctx, args) => {
+        console.log("Updating rental status for:", args.id, "to:", args.status);
+        await ctx.db.patch(args.id, { status: args.status });
     },
 });

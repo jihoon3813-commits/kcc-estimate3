@@ -1,8 +1,25 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, FileText, Calculator, Save, CheckCircle, Loader2, RefreshCw, ExternalLink, Search, ShieldCheck, Download } from 'lucide-react';
 import { parseExcelEstimate } from '../lib/excelParser';
-import { saveQuote } from '../lib/api';
+import { saveQuote, updateRentalStatus, updateSubscriptionStatus, getAdminQuoteList, getRentalApplicationList, getSubscriptionApplicationList } from '../lib/api';
+
+const RENTAL_STATUS_OPTIONS = [
+    { label: '접수', value: '접수', color: 'bg-gray-100 text-gray-600' },
+    { label: 'BS조회중', value: 'BS조회중', color: 'bg-blue-100 text-blue-600' },
+    { label: 'BS승인', value: 'BS승인', color: 'bg-green-100 text-green-600' },
+    { label: '녹취완료', value: '녹취완료', color: 'bg-purple-100 text-purple-600' },
+    { label: '설치완료(등록)', value: '설치완료(등록)', color: 'bg-[#c5a059] text-white' },
+];
+
+const SUBSCRIPTION_STATUS_OPTIONS = [
+    { label: '접수', value: '접수', color: 'bg-gray-100 text-gray-600' },
+    { label: '한캐조회중', value: '한캐조회중', color: 'bg-yellow-100 text-yellow-700' },
+    { label: '한캐승인', value: '한캐승인', color: 'bg-orange-100 text-orange-600' },
+    { label: '전자약정완료', value: '전자약정완료', color: 'bg-teal-100 text-teal-600' },
+    { label: '녹취약정완료', value: '녹취약정완료', color: 'bg-pink-100 text-pink-600' },
+    { label: '설치완료(전달)', value: '설치완료(전달)', color: 'bg-teal-600 text-white' },
+];
 
 const AdminPage = () => {
     // === EXISTING STATE ===
@@ -261,23 +278,20 @@ const AdminPage = () => {
     // === LOOKUP LOGIC ===
 
     // Fetch List
-    const fetchList = async () => {
+    const fetchList = useCallback(async () => {
         setLoading(true);
         try {
             if (activeTab === 'lookup') {
-                const { getAdminQuoteList } = await import('../lib/api');
                 const result = await getAdminQuoteList();
                 if (result.success) {
                     setQuoteList(result.data);
                 }
             } else if (activeTab === 'rental') {
-                const { getRentalApplicationList } = await import('../lib/api');
                 const result = await getRentalApplicationList();
                 if (result.success) {
                     setRentalList(result.data);
                 }
             } else if (activeTab === 'subscription') {
-                const { getSubscriptionApplicationList } = await import('../lib/api');
                 const result = await getSubscriptionApplicationList();
                 if (result.success) {
                     setSubscriptionList(result.data);
@@ -288,13 +302,13 @@ const AdminPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab]);
 
     useEffect(() => {
         if (activeTab === 'lookup' || activeTab === 'rental' || activeTab === 'subscription') {
             fetchList();
         }
-    }, [activeTab]);
+    }, [activeTab, fetchList]);
 
     // Filtering Logic
     useEffect(() => {
@@ -410,7 +424,7 @@ const AdminPage = () => {
             return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
         });
         setFilteredSubscriptionList(tempSubs);
-    }, [quoteList, rentalList, subscriptionList, searchTerm, filterBranch, filterType, filterDate, sortOrder]);
+    }, [quoteList, rentalList, subscriptionList, searchTerm, filterBranch, filterType, filterDate, sortOrder, fetchList]);
 
     const handleRentalNameClick = async (rental) => {
         setLoading(true);
@@ -448,6 +462,40 @@ const AdminPage = () => {
             });
         } catch (e) {
             console.error("Remark update failed", e);
+        }
+    };
+
+    const handleRentalStatusChange = async (item, newStatus) => {
+        // Optimistic update
+        setRentalList(prev => prev.map(r => r._id === item._id ? { ...r, status: newStatus } : r));
+
+        try {
+            const res = await updateRentalStatus(item._id, newStatus);
+            if (!res.success) {
+                alert("렌탈 상태 저장 실패: " + res.message);
+                fetchList();
+            }
+        } catch (e) {
+            console.error("Rental status update failed", e);
+            alert("렌탈 상태 저장 중 네트워크 오류가 발생했습니다.");
+            fetchList(); // Revert on failure
+        }
+    };
+
+    const handleSubscriptionStatusChange = async (item, newStatus) => {
+        // Optimistic update
+        setSubscriptionList(prev => prev.map(s => s._id === item._id ? { ...s, status: newStatus } : s));
+
+        try {
+            const res = await updateSubscriptionStatus(item._id, newStatus);
+            if (!res.success) {
+                alert("할부 상태 저장 실패: " + res.message);
+                fetchList();
+            }
+        } catch (e) {
+            console.error("Subscription status update failed", e);
+            alert("할부 상태 저장 중 네트워크 오류가 발생했습니다.");
+            fetchList(); // Revert on failure
         }
     };
 
@@ -1105,7 +1153,7 @@ const AdminPage = () => {
                                 <thead className="bg-[#2c3e50] text-white">
                                     <tr>
                                         {[
-                                            "순번", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
+                                            "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
                                         ].map((th, i) => (
                                             <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
                                         ))}
@@ -1120,6 +1168,17 @@ const AdminPage = () => {
                                         filteredRentalList.map((item, idx) => (
                                             <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
                                                 <td className="px-4 py-4 text-center font-bold text-gray-300">{filteredRentalList.length - idx}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap">
+                                                    <select
+                                                        value={item.status || '접수'}
+                                                        onChange={(e) => handleRentalStatusChange(item, e.target.value)}
+                                                        className={`text-[10px] font-black px-2 py-1 rounded-lg border-none cursor-pointer focus:ring-2 focus:ring-[#2c3e50]/30 transition-all ${RENTAL_STATUS_OPTIONS.find(opt => opt.value === (item.status || '접수'))?.color || 'bg-gray-100 text-gray-600'}`}
+                                                    >
+                                                        {RENTAL_STATUS_OPTIONS.map(opt => (
+                                                            <option key={opt.value} value={opt.value} className="bg-white text-gray-700">{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-400 text-[11px]">{new Date(item.createdAt || Date.now()).toLocaleString()}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-blue-600 hover:text-blue-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
@@ -1200,7 +1259,7 @@ const AdminPage = () => {
                                 <thead className="bg-[#1a3a3a] text-white">
                                     <tr>
                                         {[
-                                            "순번", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
+                                            "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
                                         ].map((th, i) => (
                                             <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
                                         ))}
@@ -1215,6 +1274,17 @@ const AdminPage = () => {
                                         filteredSubscriptionList.map((item, idx) => (
                                             <tr key={idx} className="hover:bg-teal-50/30 transition-colors">
                                                 <td className="px-4 py-4 text-center font-bold text-gray-300">{filteredSubscriptionList.length - idx}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap">
+                                                    <select
+                                                        value={item.status || '접수'}
+                                                        onChange={(e) => handleSubscriptionStatusChange(item, e.target.value)}
+                                                        className={`text-[10px] font-black px-2 py-1 rounded-lg border-none cursor-pointer focus:ring-2 focus:ring-[#1a3a3a]/30 transition-all ${SUBSCRIPTION_STATUS_OPTIONS.find(opt => opt.value === (item.status || '접수'))?.color || 'bg-gray-100 text-gray-600'}`}
+                                                    >
+                                                        {SUBSCRIPTION_STATUS_OPTIONS.map(opt => (
+                                                            <option key={opt.value} value={opt.value} className="bg-white text-gray-700">{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-400 text-[11px]">{new Date(item.createdAt || Date.now()).toLocaleString()}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600 hover:text-teal-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
