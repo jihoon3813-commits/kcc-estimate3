@@ -10,6 +10,8 @@ const RENTAL_STATUS_OPTIONS = [
     { label: 'BS승인', value: 'BS승인', color: 'bg-green-100 text-green-600' },
     { label: '녹취완료', value: '녹취완료', color: 'bg-purple-100 text-purple-600' },
     { label: '설치완료(등록)', value: '설치완료(등록)', color: 'bg-[#c5a059] text-white' },
+    { label: '승인불가', value: '승인불가', color: 'bg-red-100 text-red-600' },
+    { label: '취소', value: '취소', color: 'bg-gray-300 text-gray-600' },
 ];
 
 const SUBSCRIPTION_STATUS_OPTIONS = [
@@ -19,6 +21,8 @@ const SUBSCRIPTION_STATUS_OPTIONS = [
     { label: '전자약정완료', value: '전자약정완료', color: 'bg-teal-100 text-teal-600' },
     { label: '녹취약정완료', value: '녹취약정완료', color: 'bg-pink-100 text-pink-600' },
     { label: '설치완료(전달)', value: '설치완료(전달)', color: 'bg-teal-600 text-white' },
+    { label: '승인불가', value: '승인불가', color: 'bg-red-100 text-red-600' },
+    { label: '취소', value: '취소', color: 'bg-gray-300 text-gray-600' },
 ];
 
 const AdminPage = () => {
