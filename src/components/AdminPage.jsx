@@ -430,9 +430,17 @@ const AdminPage = () => {
         setLoading(true);
         setStatus("연결된 견적 정보를 불러오고 있습니다...");
         try {
-            const { searchQuote } = await import('../lib/api');
-            // We search for the latest quote for this person. Rental applications usually link to the most recent one.
-            const res = await searchQuote(rental.name, rental.phone);
+            const { searchQuote, getQuote } = await import('../lib/api');
+
+            let res;
+            if (rental.quoteId) {
+                // If application has a specific quote link, use it
+                res = await getQuote(rental.quoteId);
+            } else {
+                // Fallback to searching by name/phone
+                res = await searchQuote(rental.name, rental.phone);
+            }
+
             if (res.success) {
                 setSelectedQuote(res.data);
             } else {
@@ -1417,7 +1425,7 @@ const AdminPage = () => {
 
                                         {/* Row 2 (Key Figures) */}
                                         <div className="bg-white p-4 rounded-xl border border-gray-200 md:col-span-1">
-                                            <p className="text-xs text-gray-400 font-bold mb-1">최종 견적가</p>
+                                            <p className="text-xs text-gray-400 font-bold mb-1">{selectedQuote.type === '가견적' ? '가견적가' : '최종 견적가'}</p>
                                             <p className="text-xl font-black text-gray-800">{formatKrw(selectedQuote.finalQuote)}</p>
                                         </div>
                                         <div className="bg-[#001a3d] p-4 rounded-xl shadow-lg md:col-span-1">

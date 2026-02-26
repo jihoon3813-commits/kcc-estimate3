@@ -70,6 +70,23 @@ export const saveQuote = async (data, file) => {
     }
 };
 
+export const getQuote = async (id) => {
+    try {
+        const quote = await convex.query(api.quotes.getQuote, { id });
+        if (!quote) return { success: false, message: "견적 정보를 찾을 수 없습니다." };
+        return {
+            success: true,
+            data: {
+                ...quote,
+                subs: { 24: quote.sub24, 36: quote.sub36, 48: quote.sub48, 60: quote.sub60 },
+                items: JSON.parse(quote.items || "[]")
+            }
+        };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
 export const getAdminQuoteList = async () => {
     try {
         const data = await convex.query(api.quotes.listQuotes);

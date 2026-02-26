@@ -101,6 +101,18 @@ export const clearAllQuotes = internalMutation({
     },
 });
 
+export const getQuote = query({
+    args: { id: v.id("quotes") },
+    handler: async (ctx, args) => {
+        const quote = await ctx.db.get(args.id);
+        if (!quote) return null;
+        return {
+            ...quote,
+            pdfUrl: quote.storageId ? await ctx.storage.getUrl(quote.storageId) : quote.pdfUrl,
+        };
+    },
+});
+
 // Queries
 export const listQuotes = query({
     handler: async (ctx) => {

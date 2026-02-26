@@ -69,11 +69,11 @@ const CustomerPage = () => {
         setSearchForm(prev => ({ ...prev, phone: formatted }));
     };
 
-    const executeSearch = async (nameVal, phoneVal) => {
+    const executeSearch = async (nameVal, phoneVal, targetType) => {
         setLoading(true);
         try {
-            // Updated: Search without statusType filter to find ANY matching quote
-            const result = await searchQuote(nameVal, phoneVal);
+            // Updated: Search with statusType if provided
+            const result = await searchQuote(nameVal, phoneVal, targetType);
 
             if (result.success) {
                 setData(result.data);
@@ -86,7 +86,6 @@ const CustomerPage = () => {
                 }
 
                 if (result.config?.appliances) {
-                    // GAS returns { A: [], B: [] } object, not an array
                     setAppliances(result.config.appliances);
                 } else {
                     setAppliances({
@@ -101,7 +100,17 @@ const CustomerPage = () => {
                 }
                 setIsLoggedIn(true);
             } else {
-                alert(result.message || "조회 실패: 정보를 다시 확인해주세요.");
+                // If search with type failed, try searching without type as fallback
+                const fallbackResult = await searchQuote(nameVal, phoneVal);
+                if (fallbackResult.success) {
+                    setData(fallbackResult.data);
+                    if (fallbackResult.data.type) setStatusType(fallbackResult.data.type);
+                    if (fallbackResult.config?.banners) setBanners(fallbackResult.config.banners);
+                    if (fallbackResult.config?.appliances) setAppliances(fallbackResult.config.appliances);
+                    setIsLoggedIn(true);
+                } else {
+                    alert(result.message || "조회 실패: 정보를 다시 확인해주세요.");
+                }
             }
         } catch (error) {
             console.error("Search error:", error);
@@ -119,21 +128,23 @@ const CustomerPage = () => {
         const t = params.get('t'); // '가견적' or '최종견적'
 
         if (n && p) {
-            // Decoding might be needed if strictly encoded, but params.get handles most
             const nameDec = decodeURIComponent(n);
             const phoneDec = decodeURIComponent(p);
-            const typeDec = t ? decodeURIComponent(t) : '가견적';
+            const typeDec = t ? decodeURIComponent(t) : null;
 
             setSearchForm({ name: nameDec, phone: phoneDec });
-            // typeDec is used only for initial state, but search ignores it to find best match
-            if (typeDec) setStatusType(typeDec);
-            executeSearch(nameDec, phoneDec);
+            if (typeDec) {
+                setStatusType(typeDec);
+                executeSearch(nameDec, phoneDec, typeDec);
+            } else {
+                executeSearch(nameDec, phoneDec);
+            }
         }
     }, []);
 
     const handleSearch = (e) => {
         e.preventDefault();
-        executeSearch(searchForm.name, searchForm.phone);
+        executeSearch(searchForm.name, searchForm.phone, statusType);
     };
 
     const formatKrw = (val) => new Intl.NumberFormat('ko-KR').format(val || 0) + '원';
@@ -190,7 +201,13 @@ const CustomerPage = () => {
                                 <button
                                     key={type}
                                     type="button"
-                                    onClick={() => setStatusType(type)}
+                                    onClick={() => {
+                                        setStatusType(type);
+                                        // If already has name/phone, re-trigger search to find the specific type
+                                        if (searchForm.name && searchForm.phone) {
+                                            executeSearch(searchForm.name, searchForm.phone, type);
+                                        }
+                                    }}
                                     className={`py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all ${statusType === type
                                         ? 'bg-[#c5a059] text-white shadow-md'
                                         : 'text-white/60 hover:text-white hover:bg-white/5'
@@ -284,11 +301,11 @@ const CustomerPage = () => {
                                 <p className="text-[9px] font-black text-[#c5a059] uppercase tracking-widest mb-1.5">Customer details</p>
                                 <h3 className="text-2xl font-black text-[#001a3d] leading-none">{data.name} 고객님</h3>
                             </div>
-                            <div className={`px-4 py-2 rounded-xl text-[10px] font-black shadow-sm ${data.status === '최종견적' ? 'bg-[#001a3d] text-[#c5a059] border border-[#c5a059]/30' :
-                                data.status === '책임견적' ? 'bg-[#c5a059] text-white shadow-md' :
+                            <div className={`px-4 py-2 rounded-xl text-[10px] font-black shadow-sm ${data.type === '최종견적' ? 'bg-[#001a3d] text-[#c5a059] border border-[#c5a059]/30' :
+                                data.type === '책임견적' ? 'bg-[#c5a059] text-white shadow-md' :
                                     'bg-gray-100 text-gray-400 border border-gray-200'
                                 }`}>
-                                {data.status || '가견적'}
+                                {data.type || '가견적'}
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
