@@ -114,6 +114,15 @@ export const updateQuoteItems = async (params) => {
     }
 };
 
+export const updateQuoteFinancials = async (params) => {
+    try {
+        await convex.mutation(api.quotes.updateFinancials, params);
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
 /**
  * 견적 데이터 조회
  */

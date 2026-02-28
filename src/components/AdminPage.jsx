@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Upload, FileText, Calculator, Save, CheckCircle, Loader2, RefreshCw, ExternalLink, Search, ShieldCheck, Download } from 'lucide-react';
 import { parseExcelEstimate } from '../lib/excelParser';
 import { saveQuote, updateRentalStatus, updateSubscriptionStatus, getAdminQuoteList, getRentalApplicationList, getSubscriptionApplicationList } from '../lib/api';
@@ -65,11 +65,48 @@ const AdminPage = () => {
     const [filterType, setFilterType] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedQuote, setSelectedQuote] = useState(null);
+    const [isEditingModal, setIsEditingModal] = useState(false);
+    const [modalEditData, setModalEditData] = useState({
+        discountRate: 0,
+        extraDiscount: 0
+    });
     const [sortOrder, setSortOrder] = useState('desc'); // 'desc' | 'asc'
     const [rentalList, setRentalList] = useState([]);
     const [filteredRentalList, setFilteredRentalList] = useState([]);
     const [subscriptionList, setSubscriptionList] = useState([]);
     const [filteredSubscriptionList, setFilteredSubscriptionList] = useState([]);
+
+    const modalCalculations = useMemo(() => {
+        if (!selectedQuote) return null;
+
+        const discountRate = isEditingModal ? modalEditData.discountRate : selectedQuote.discountRate;
+        const extraDiscount = isEditingModal ? modalEditData.extraDiscount : selectedQuote.extraDiscount;
+
+        const finalQuote = Number(selectedQuote.finalQuote);
+        const kccPrice = Number(selectedQuote.kccPrice);
+
+        const discountAmt = Math.floor((finalQuote * (discountRate / 100)) / 100) * 100;
+        const finalBenefit = finalQuote - discountAmt - extraDiscount;
+        const marginAmount = finalBenefit - kccPrice;
+        const marginRate = finalBenefit > 0 ? (marginAmount / finalBenefit) * 100 : 0;
+
+        const annualRate = 0.1;
+        const subs = {};
+        for (const m of [24, 36, 48, 60]) {
+            const r = annualRate / 12;
+            const pmt = (finalBenefit * r) / (1 - Math.pow(1 + r, -m));
+            subs[m] = Math.floor(pmt / 10) * 10;
+        }
+
+        return {
+            finalBenefit,
+            discountRate,
+            extraDiscount,
+            marginAmount,
+            marginRate,
+            subs
+        };
+    }, [selectedQuote, isEditingModal, modalEditData]);
 
     useEffect(() => {
         console.log("AdminPage Mounted and Ready");
@@ -474,6 +511,67 @@ const AdminPage = () => {
             });
         } catch (e) {
             console.error("Remark update failed", e);
+        }
+    };
+
+    const handleModalSave = async () => {
+        if (!selectedQuote) return;
+        setLoading(true);
+        setStatus("수정된 정보를 저장하고 있습니다...");
+
+        try {
+            const { updateQuoteFinancials } = await import('../lib/api');
+            const res = await updateQuoteFinancials({
+                id: selectedQuote.id,
+                discountRate: modalCalculations.discountRate,
+                extraDiscount: modalCalculations.extraDiscount,
+                finalBenefit: modalCalculations.finalBenefit,
+                marginAmt: modalCalculations.marginAmount,
+                marginRate: modalCalculations.marginRate,
+                sub24: modalCalculations.subs[24],
+                sub36: modalCalculations.subs[36],
+                sub48: modalCalculations.subs[48],
+                sub60: modalCalculations.subs[60]
+            });
+
+            if (res.success) {
+                alert("성공적으로 수정되었습니다.");
+                setIsEditingModal(false);
+                // Update the list locally to reflect changes immediately
+                setQuoteList(prev => prev.map(q => q.id === selectedQuote.id ? {
+                    ...q,
+                    discountRate: modalCalculations.discountRate,
+                    extraDiscount: modalCalculations.extraDiscount,
+                    finalBenefit: modalCalculations.finalBenefit,
+                    marginAmt: modalCalculations.marginAmount,
+                    marginRate: modalCalculations.marginRate,
+                    sub24: modalCalculations.subs[24],
+                    sub36: modalCalculations.subs[36],
+                    sub48: modalCalculations.subs[48],
+                    sub60: modalCalculations.subs[60]
+                } : q));
+                // Update selectedQuote as well
+                setSelectedQuote(prev => ({
+                    ...prev,
+                    discountRate: modalCalculations.discountRate,
+                    extraDiscount: modalCalculations.extraDiscount,
+                    finalBenefit: modalCalculations.finalBenefit,
+                    marginAmt: modalCalculations.marginAmount,
+                    marginRate: modalCalculations.marginRate,
+                    sub24: modalCalculations.subs[24],
+                    sub36: modalCalculations.subs[36],
+                    sub48: modalCalculations.subs[48],
+                    sub60: modalCalculations.subs[60]
+                }));
+            } else {
+                alert("저장 실패: " + res.message);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("저장 중 오류가 발생했습니다.");
+        } finally {
+            setLoading(false);
+            setStatus("");
         }
     };
 
@@ -1372,10 +1470,37 @@ const AdminPage = () => {
                                     <h3 className="text-xl font-black">{selectedQuote.name} 고객님 견적 상세</h3>
                                     <p className="text-xs text-white/60 font-bold mt-1">{selectedQuote.date} | {selectedQuote.branch}</p>
                                 </div>
-                                <button onClick={() => setSelectedQuote(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                                    <span className="sr-only">Close</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {!isEditingModal ? (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setModalEditData({
+                                                    discountRate: selectedQuote.discountRate,
+                                                    extraDiscount: selectedQuote.extraDiscount
+                                                });
+                                                setIsEditingModal(true);
+                                            }}
+                                            className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
+                                        >
+                                            <Calculator size={14} /> 수정하기
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIsEditingModal(false);
+                                            }}
+                                            className="px-4 py-2 bg-red-500/80 hover:bg-red-600 rounded-lg text-xs font-bold transition-colors"
+                                        >
+                                            취소
+                                        </button>
+                                    )}
+                                    <button onClick={() => { setSelectedQuote(null); setIsEditingModal(false); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                                        <span className="sr-only">Close</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                    </button>
+                                </div>
                             </div>
                             <div className="p-6 overflow-y-auto bg-gray-50 flex-1">
                                 {/* Summary Cards */}
@@ -1416,15 +1541,37 @@ const AdminPage = () => {
                                         </div>
                                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                                             <p className="text-[10px] text-gray-400 font-bold mb-1">할인율</p>
-                                            <p className="text-sm font-bold text-red-500">{selectedQuote.discountRate}%</p>
+                                            {isEditingModal ? (
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        value={modalEditData.discountRate}
+                                                        onChange={(e) => setModalEditData({ ...modalEditData, discountRate: Number(e.target.value) })}
+                                                        className="w-full bg-gray-50 border-none rounded px-2 py-0.5 text-sm font-bold text-red-500 focus:ring-1 focus:ring-red-200 outline-none"
+                                                    />
+                                                    <span className="text-xs font-bold text-red-500">%</span>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm font-bold text-red-500">{selectedQuote.discountRate}%</p>
+                                            )}
                                         </div>
                                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                                             <p className="text-[10px] text-gray-400 font-bold mb-1">추가 할인금액</p>
-                                            <p className="text-sm font-bold text-red-500">{formatKrw(selectedQuote.extraDiscount)}</p>
+                                            {isEditingModal ? (
+                                                <input
+                                                    type="text"
+                                                    value={modalEditData.extraDiscount.toLocaleString()}
+                                                    onChange={(e) => setModalEditData({ ...modalEditData, extraDiscount: Number(e.target.value.replace(/[^0-9]/g, '')) })}
+                                                    className="w-full bg-gray-50 border-none rounded px-2 py-0.5 text-sm font-bold text-red-500 focus:ring-1 focus:ring-red-200 outline-none"
+                                                />
+                                            ) : (
+                                                <p className="text-sm font-bold text-red-500">{formatKrw(selectedQuote.extraDiscount)}</p>
+                                            )}
                                         </div>
                                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                                             <p className="text-[10px] text-gray-400 font-bold mb-1">마진율</p>
-                                            <p className={`text-sm font-black ${Number(selectedQuote.marginRate) >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{Number(selectedQuote.marginRate).toFixed(1)}%</p>
+                                            <p className={`text-sm font-black ${Number(modalCalculations.marginRate) >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{Number(modalCalculations.marginRate).toFixed(1)}%</p>
                                         </div>
 
                                         {/* Row 2 (Key Figures) */}
@@ -1434,11 +1581,11 @@ const AdminPage = () => {
                                         </div>
                                         <div className="bg-[#001a3d] p-4 rounded-xl shadow-lg md:col-span-1">
                                             <p className="text-xs text-white/60 font-bold mb-1">고객 실 부담금</p>
-                                            <p className="text-xl font-black text-white">{formatKrw(selectedQuote.finalBenefit)}</p>
+                                            <p className="text-xl font-black text-white">{formatKrw(modalCalculations.finalBenefit)}</p>
                                         </div>
                                         <div className="bg-green-50 p-4 rounded-xl border border-green-100 md:col-span-1">
                                             <p className="text-xs text-green-600 font-bold mb-1">마진 금액</p>
-                                            <p className="text-xl font-black text-green-700">{formatKrw(selectedQuote.marginAmt)}</p>
+                                            <p className="text-xl font-black text-green-700">{formatKrw(modalCalculations.marginAmount)}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1455,7 +1602,7 @@ const AdminPage = () => {
                                                 <div key={m} className={`p-2 rounded-lg flex justify-between items-center ${m === 60 ? 'bg-[#c5a059]/10 border border-[#c5a059]/30' : 'bg-white border border-gray-100'}`}>
                                                     <span className="text-[10px] font-bold text-gray-500">{m}개월</span>
                                                     <span className={`text-sm font-black ${m === 60 ? 'text-[#c5a059]' : 'text-gray-700'}`}>
-                                                        {selectedQuote[`sub${m}`] ? Number(selectedQuote[`sub${m}`]).toLocaleString() : 0}
+                                                        {modalCalculations.subs[m] ? Number(modalCalculations.subs[m]).toLocaleString() : 0}
                                                     </span>
                                                 </div>
                                             ))}
@@ -1484,7 +1631,7 @@ const AdminPage = () => {
                                             <div key={val} className="p-3 rounded-xl text-center bg-white border border-gray-100">
                                                 <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정</p>
                                                 <p className="text-sm font-black text-[#001a3d]">
-                                                    {calculatePackage(Number(selectedQuote.finalBenefit), val * 10000, val * 500000 / 1.1)}
+                                                    {calculatePackage(Number(modalCalculations.finalBenefit), val * 10000, val * 500000 / 1.1)}
                                                 </p>
                                             </div>
                                         ))}
@@ -1492,28 +1639,41 @@ const AdminPage = () => {
                                 </div>
                             </div>
                             <div className="p-4 bg-white border-t border-gray-100 flex justify-between gap-3">
-                                <button
-                                    onClick={() => {
-                                        const url = `${window.location.origin}/?n=${encodeURIComponent(selectedQuote.name)}&p=${encodeURIComponent(selectedQuote.phone)}&t=${encodeURIComponent(selectedQuote.type)}`;
-                                        window.open(url, '_blank');
-                                    }}
-                                    className="flex-1 py-4 bg-[#001a3d] text-white font-black rounded-xl hover:bg-blue-900 transition-colors flex items-center justify-center gap-2 text-base"
-                                >
-                                    <ExternalLink size={20} /> 발송견적 (WEB)
-                                </button>
+                                <div className="flex-1 flex gap-3">
+                                    {isEditingModal ? (
+                                        <button
+                                            onClick={handleModalSave}
+                                            className="flex-1 py-4 bg-red-500 text-white font-black rounded-xl hover:bg-red-600 transition-colors flex items-center justify-center gap-2 text-base"
+                                        >
+                                            <Save size={20} /> 수정내용 저장하기
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    const url = `${window.location.origin}/?n=${encodeURIComponent(selectedQuote.name)}&p=${encodeURIComponent(selectedQuote.phone)}&t=${encodeURIComponent(selectedQuote.type)}`;
+                                                    window.open(url, '_blank');
+                                                }}
+                                                className="flex-1 py-4 bg-[#001a3d] text-white font-black rounded-xl hover:bg-blue-900 transition-colors flex items-center justify-center gap-2 text-base"
+                                            >
+                                                <ExternalLink size={20} /> 발송견적 (WEB)
+                                            </button>
 
-                                {selectedQuote.pdfUrl && (
-                                    <a
-                                        href={selectedQuote.pdfUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex-1 py-4 bg-[#c5a059] text-white font-black rounded-xl hover:bg-[#b08d48] transition-colors flex items-center justify-center gap-2 text-base"
-                                    >
-                                        <FileText size={20} /> PDF 다운로드
-                                    </a>
-                                )}
+                                            {selectedQuote.pdfUrl && (
+                                                <a
+                                                    href={selectedQuote.pdfUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex-1 py-4 bg-[#c5a059] text-white font-black rounded-xl hover:bg-[#b08d48] transition-colors flex items-center justify-center gap-2 text-base"
+                                                >
+                                                    <FileText size={20} /> PDF 다운로드
+                                                </a>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
 
-                                <button onClick={() => setSelectedQuote(null)} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl transition-colors text-base">
+                                <button onClick={() => { setSelectedQuote(null); setIsEditingModal(false); }} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl transition-colors text-base">
                                     닫기
                                 </button>
                             </div>

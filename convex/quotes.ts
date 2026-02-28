@@ -84,6 +84,25 @@ export const updateItems = mutation({
     },
 });
 
+export const updateFinancials = mutation({
+    args: {
+        id: v.id("quotes"),
+        finalBenefit: v.number(),
+        discountRate: v.number(),
+        extraDiscount: v.number(),
+        marginAmt: v.number(),
+        marginRate: v.number(),
+        sub24: v.number(),
+        sub36: v.number(),
+        sub48: v.number(),
+        sub60: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const { id, ...updates } = args;
+        await ctx.db.patch(id, updates);
+    },
+});
+
 export const generateUploadUrl = mutation({
     args: {},
     handler: async (ctx) => {
