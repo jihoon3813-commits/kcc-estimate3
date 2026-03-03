@@ -778,39 +778,49 @@ const AdminPage = () => {
         <div className="max-w-7xl mx-auto p-4 md:p-8 pb-20 font-sans">
             {/* Main Header & Tab Navigation */}
             <header className="mb-8 flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
-                <div className="flex items-center gap-4 mb-4 md:mb-0">
+                <div className="flex items-center gap-4 mb-4 md:mb-0 shrink-0">
                     <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/5b115594e9a66.png" alt="KCC Logo" className="h-8 object-contain" />
-                    <div>
+                    <div className="whitespace-nowrap">
                         <h1 className="text-xl font-black text-[#001a3d]">KCC 관리자 시스템</h1>
                         <p className="text-xs text-gray-400 font-bold">견적 생성 및 이력 관리</p>
                     </div>
                 </div>
 
-                <div className="flex bg-gray-100 p-1.5 rounded-2xl">
-                    <button
-                        onClick={() => setActiveTab('send')}
-                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'send' ? 'bg-[#001a3d] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                <div className="flex items-center gap-3 flex-wrap justify-end">
+                    <div className="flex bg-gray-100 p-1.5 rounded-2xl overflow-x-auto">
+                        <button
+                            onClick={() => setActiveTab('send')}
+                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'send' ? 'bg-[#001a3d] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Calculator size={18} /> 견적발송
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('lookup')}
+                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'lookup' ? 'bg-[#c5a059] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <FileText size={18} /> 견적조회
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('rental')}
+                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'rental' ? 'bg-[#2c3e50] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <ShieldCheck size={18} /> 렌탈신청 내역
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('subscription')}
+                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'subscription' ? 'bg-[#1a3a3a] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Save size={18} /> 할부신청 내역
+                        </button>
+                    </div>
+                    <a
+                        href="/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-5 py-3 rounded-2xl text-sm font-black transition-all flex items-center gap-2 bg-blue-50 text-[#001a3d] hover:bg-blue-100 border border-blue-100 shadow-sm whitespace-nowrap"
                     >
-                        <Calculator size={18} /> 견적발송
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('lookup')}
-                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'lookup' ? 'bg-[#c5a059] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <FileText size={18} /> 견적조회
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('rental')}
-                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'rental' ? 'bg-[#2c3e50] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <ShieldCheck size={18} /> 렌탈신청 내역
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('subscription')}
-                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'subscription' ? 'bg-[#1a3a3a] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <Save size={18} /> 할부신청 내역
-                    </button>
+                        <ExternalLink size={18} /> 견적조회 사이트 바로가기
+                    </a>
                 </div>
             </header>
 
