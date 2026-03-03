@@ -768,6 +768,14 @@ const AdminPage = () => {
                     <button type="submit" className="w-full bg-[#001a3d] text-white py-4 rounded-xl font-black hover:bg-blue-900 transition-colors shadow-lg">
                         접속하기
                     </button>
+                    <a
+                        href="/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 bg-blue-50 text-[#001a3d] py-4 rounded-xl font-black hover:bg-blue-100 transition-colors shadow-sm border border-blue-100"
+                    >
+                        <ExternalLink size={18} /> 견적조회 사이트 바로가기
+                    </a>
                     <p className="text-[10px] text-gray-300">문의: 관리자에게 문의하세요</p>
                 </form>
             </div>
@@ -786,41 +794,31 @@ const AdminPage = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 flex-wrap justify-end">
-                    <div className="flex bg-gray-100 p-1.5 rounded-2xl overflow-x-auto">
-                        <button
-                            onClick={() => setActiveTab('send')}
-                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'send' ? 'bg-[#001a3d] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <Calculator size={18} /> 견적발송
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('lookup')}
-                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'lookup' ? 'bg-[#c5a059] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <FileText size={18} /> 견적조회
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('rental')}
-                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'rental' ? 'bg-[#2c3e50] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <ShieldCheck size={18} /> 렌탈신청 내역
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('subscription')}
-                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'subscription' ? 'bg-[#1a3a3a] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <Save size={18} /> 할부신청 내역
-                        </button>
-                    </div>
-                    <a
-                        href="/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-5 py-3 rounded-2xl text-sm font-black transition-all flex items-center gap-2 bg-blue-50 text-[#001a3d] hover:bg-blue-100 border border-blue-100 shadow-sm whitespace-nowrap"
+                <div className="flex bg-gray-100 p-1.5 rounded-2xl">
+                    <button
+                        onClick={() => setActiveTab('send')}
+                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'send' ? 'bg-[#001a3d] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        <ExternalLink size={18} /> 견적조회 사이트 바로가기
-                    </a>
+                        <Calculator size={18} /> 견적발송
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('lookup')}
+                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'lookup' ? 'bg-[#c5a059] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <FileText size={18} /> 견적조회
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('rental')}
+                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'rental' ? 'bg-[#2c3e50] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <ShieldCheck size={18} /> 렌탈신청 내역
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('subscription')}
+                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'subscription' ? 'bg-[#1a3a3a] text-white shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <Save size={18} /> 할부신청 내역
+                    </button>
                 </div>
             </header>
 
