@@ -475,47 +475,58 @@ const CustomerPage = () => {
                             <div className="purple-premium-gradient p-8 md:p-14 text-white relative overflow-hidden shadow-2xl flex flex-col justify-between">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-4xl"></div>
                                 <div className="relative z-10 space-y-12">
-                                    <div className="space-y-3 text-center">
-                                        <span className="bg-[#facc15] text-[#311b92] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block shadow-lg">Upgrade</span>
-                                        <h3 className="text-2xl md:text-4xl font-black tracking-tight leading-none">구독 <span className="text-white italic">PLUS</span> 서비스</h3>
-                                        <p className="text-white/80 text-sm md:text-base font-semibold leading-relaxed">
-                                            월 구독료에 조금만 추가하면 <br className="md:hidden" />
-                                            <span className="text-[#facc15] font-black underline underline-offset-4 decoration-[#facc15]/30">최신 가전</span>까지 드립니다.
-                                        </p>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] space-y-4 shadow-2xl">
-                                            <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                                                <span className="font-black text-sm md:text-base tracking-tight">PLUS A 타입</span>
-                                                <button onClick={() => setModalType('A')} className="bg-white text-[#311b92] px-3 py-1.5 rounded-xl text-[9px] font-black shadow-lg active:scale-95 transition-all">제품 자세히 보기</button>
-                                            </div>
-                                            <div className="space-y-2.5 px-0.5">
-                                                {[24, 36, 48, 60].map(m => {
-                                                    const fallbackA = { 24: 40000, 36: 30000, 48: 25000, 60: 20000 };
-                                                    return (
-                                                        <div key={m} className={`flex justify-between items-center text-[12px] md:text-[13px] font-extrabold ${m === 60 ? 'text-[#facc15]' : 'text-white'}`}>
-                                                            <span>{m}개월</span>
-                                                            <span className="font-outfit">+{new Intl.NumberFormat('ko-KR').format(data.plusAdds?.A?.[m] || fallbackA[m])}원</span>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
+                                    <div className="space-y-4 text-center">
+                                        <span className="bg-[#facc15] text-[#311b92] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block shadow-lg">Special Promotion</span>
+                                        <div className="space-y-1">
+                                            <p className="text-sm md:text-base font-bold text-white/80">KCC홈씨씨 견적 고객 대상</p>
+                                            <h3 className="text-2xl md:text-3xl font-black tracking-tight leading-tight">LG전자 가전구독료 <br className="md:hidden" /> 할인 프로모션 진행 중</h3>
                                         </div>
-                                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] space-y-4 shadow-2xl">
-                                            <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                                                <span className="font-black text-sm md:text-base tracking-tight">PLUS B 타입</span>
-                                                <button onClick={() => setModalType('B')} className="bg-white text-[#6a1b9a] px-3 py-1.5 rounded-xl text-[9px] font-black shadow-lg active:scale-95 transition-all">제품 자세히 보기</button>
+                                    </div>
+                                    
+                                    <div className="max-w-2xl mx-auto w-full">
+                                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] space-y-8 shadow-2xl relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 p-4 opacity-20">
+                                                <img src="https://www.lge.co.kr/lg5-common/images/header/lg_logo_new.svg" alt="LG Logo" className="h-10 w-auto grayscale brightness-0 invert opacity-20" />
                                             </div>
-                                            <div className="space-y-2.5 px-0.5">
-                                                {[24, 36, 48, 60].map(m => {
-                                                    const fallbackB = { 24: 65000, 36: 45000, 48: 35000, 60: 30000 };
-                                                    return (
-                                                        <div key={m} className={`flex justify-between items-center text-[12px] md:text-[13px] font-extrabold ${m === 60 ? 'text-[#facc15]' : 'text-white'}`}>
-                                                            <span>{m}개월</span>
-                                                            <span className="font-outfit">+{new Intl.NumberFormat('ko-KR').format(data.plusAdds?.B?.[m] || fallbackB[m])}원</span>
-                                                        </div>
-                                                    );
-                                                })}
+                                            
+                                            <div className="space-y-4">
+                                                <div className="flex items-start gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+                                                    <div className="w-12 h-12 bg-[#facc15] text-[#311b92] rounded-xl flex items-center justify-center shrink-0 shadow-lg font-black text-lg font-outfit">10%</div>
+                                                    <div>
+                                                        <p className="text-[#facc15] text-[10px] font-black uppercase tracking-widest mb-1">Monthly Discount</p>
+                                                        <p className="text-base md:text-lg font-black text-white leading-tight">LG전자 가전구독료 <span className="text-[#facc15]">매월 10%</span> 할인</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-start gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+                                                    <div className="w-12 h-12 bg-white/20 text-white rounded-xl flex items-center justify-center shrink-0 border border-white/20"><CheckCircle size={24} /></div>
+                                                    <div>
+                                                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">Target Products</p>
+                                                        <p className="text-base md:text-lg font-black text-white leading-tight">LG전자 홈페이지 전제품 대상</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-6 pt-2">
+                                                <p className="text-sm md:text-base font-bold text-white/90 leading-relaxed break-keep text-center md:text-left">
+                                                    창호 교체하면서 가전까지 고민 중이라면, 어디에서도 만날 수 없는 <span className="text-[#facc15] underline underline-offset-4 decoration-[#facc15]/30">LG가전 구독료 10% 할인 혜택</span>을 놓치지 마세요! <br className="hidden md:block" />
+                                                    오직 KCC홈씨씨 견적 고객에게만 적용해 드립니다.
+                                                </p>
+                                                <div className="bg-white/5 p-5 rounded-2xl border border-dashed border-white/20 text-center">
+                                                    <p className="text-xs md:text-sm font-black text-white/60 leading-relaxed">
+                                                        신청 문의는 <span className="text-white">창호 상담사</span>를<br className="md:hidden" /> 통해서 가능합니다.
+                                                    </p>
+                                                </div>
+                                                <div className="pt-2 flex justify-center">
+                                                    <a
+                                                        href="https://www.lge.co.kr/care-solutions"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="w-full bg-white text-[#311b92] py-3.5 rounded-xl font-black text-xs md:text-sm shadow-xl hover:bg-[#facc15] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 group"
+                                                    >
+                                                        LG구독 홈페이지 바로가기
+                                                        <ExternalLink size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                                    </a>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
