@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload } from 'lucide-react';
+import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload, Calculator, ArrowRightLeft } from 'lucide-react';
 import { searchQuote, submitRentalApplication, submitSubscriptionApplication, getRentalDraft, saveRentalDraft, getSubscriptionDraft, saveSubscriptionDraft, uploadSingleFile } from '../lib/api';
 
 const CustomerPage = () => {
@@ -20,6 +20,37 @@ const CustomerPage = () => {
     const [statusType, setStatusType] = useState('가견적'); // Default to final quote
     const [showContactMenu, setShowContactMenu] = useState(false);
 
+    // === CASH / BALANCE STATE ===
+    const [downPayment, setDownPayment] = useState(0);
+    const [balance, setBalance] = useState(0);
+    const [conversionMode, setConversionMode] = useState(null); // 'full' | 'balance'
+    const [calculatedSubs, setCalculatedSubs] = useState(null);
+    const [selectedConversionMonth, setSelectedConversionMonth] = useState(60);
+
+    // Initialize down payment and balance when data is loaded
+    React.useEffect(() => {
+        if (data?.finalBenefit) {
+            const half = Math.floor((data.finalBenefit * 0.5) / 10000) * 10000;
+            setDownPayment(half);
+            setBalance(data.finalBenefit - half);
+        }
+    }, [data?.finalBenefit]);
+
+    // Handle initial custom subs for full or balance
+    const handleConversion = (mode) => {
+        setConversionMode(mode);
+        const amount = mode === 'full' ? data.finalBenefit : balance;
+        
+        const annualRate = 0.1;
+        const subs = {};
+        for (const m of [24, 36, 48, 60]) {
+            const r = annualRate / 12;
+            const pmt = (amount * r) / (1 - Math.pow(1 + r, -m));
+            subs[m] = Math.floor(pmt / 10) * 10;
+        }
+        setCalculatedSubs(subs);
+    };
+
     // === RENTAL APPLICATION STATE ===
     const [isRentalMode, setIsRentalMode] = useState(false);
     const [applicationType, setApplicationType] = useState(null); // 'rental' | 'subscription'
@@ -36,6 +67,10 @@ const CustomerPage = () => {
             id_card: [],
             bank_book: []
         },
+        isConversion: false,
+        conversionSubs: null,
+        conversionMode: null, // 'full' | 'balance'
+        downPaymentToReport: 0,
         agreements: {
             agree1: false,
             agree2: false,
@@ -469,74 +504,150 @@ const CustomerPage = () => {
                     </h3>
 
                     <div className="grid grid-cols-1 gap-6">
-                        {/* 1. 일시불 섹션 */}
-                        <div className="luxury-card overflow-hidden border-none shadow-xl">
-                            <div className="bg-[#1a1c23] px-5 py-3.5 flex justify-between items-center text-white">
-                                <div className="flex items-center gap-2.5 text-sm font-black">
-                                    <div className="w-6 h-6 bg-white text-[#1a1c23] rounded-full flex items-center justify-center text-[10px] font-outfit">1</div>
-                                    일시불 (현금/카드)
-                                </div>
-                                <span className="bg-[#facc15] text-[#1a1c23] text-[8px] font-black px-2.5 py-1 rounded shadow-sm uppercase">Best</span>
-                            </div>
-                            <div className="p-6 md:p-10 space-y-6 bg-white">
-                                <div className="flex justify-between items-center text-xs">
-                                    <span className="text-gray-400 font-bold">정상 견적금액 (상세항목 합계)</span>
-                                    <span className="text-gray-400 font-bold text-base line-through font-outfit">{formatKrw(data.finalQuote)}</span>
-                                </div>
-                                <div className="bg-red-50 border border-red-100/50 px-4 py-3 rounded-2xl flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <Gift size={16} className="text-red-500" />
-                                        <span className="text-red-500 font-black text-xs">특별 프로모션 할인</span>
+                        {/* 1 & 2 그룹 영역 */}
+                        <div className="space-y-6 bg-white p-2 md:p-4 rounded-[2.5rem] border border-gray-100 shadow-sm">
+                            {/* 1. 일시불 섹션 */}
+                            <div className="luxury-card overflow-hidden border-none shadow-xl">
+                                <div className="bg-[#1a1c23] px-5 py-3.5 flex justify-between items-center text-white">
+                                    <div className="flex items-center gap-2.5 text-sm font-black">
+                                        <div className="w-6 h-6 bg-white text-[#1a1c23] rounded-full flex items-center justify-center text-[10px] font-outfit">1</div>
+                                        일시불 (현금/카드)
                                     </div>
-                                    <span className="text-red-500 font-black text-base font-outfit">-{formatKrw(data.finalQuote - data.finalBenefit)}</span>
+                                    <span className="bg-[#facc15] text-[#1a1c23] text-[8px] font-black px-2.5 py-1 rounded shadow-sm uppercase">Best</span>
                                 </div>
-                                <div className="pt-6 border-t border-dashed border-gray-100 flex justify-between items-end">
-                                    <span className="text-[#001a3d] font-black text-sm pb-1">최종 할인 혜택가</span>
-                                    <div className="text-right">
-                                        <span className="text-4xl font-black text-[#2563eb] tracking-tighter font-outfit">{formatKrw(data.finalBenefit).replace('원', '')}</span>
-                                        <span className="text-xl font-black text-[#2563eb] ml-0.5">원</span>
+                                <div className="p-6 md:p-10 space-y-6 bg-white">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-gray-400 font-bold">정상 견적금액 (상세항목 합계)</span>
+                                        <span className="text-gray-400 font-bold text-base line-through font-outfit">{formatKrw(data.finalQuote)}</span>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 2. 스마트 구독 서비스 */}
-                        <div className="premium-gradient p-8 md:p-10 text-white relative overflow-hidden shadow-xl shadow-[#001a3d]/10">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-4xl"></div>
-                            <div className="relative z-10 mb-8">
-                                <h4 className="text-base font-black text-white flex justify-between items-center mb-1">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-6 h-6 bg-white/20 text-white rounded-full flex items-center justify-center text-[10px] font-black border border-white/20 font-outfit">2</div>
-                                        스마트 구독 서비스
+                                    <div className="bg-red-50 border border-red-100/50 px-4 py-3 rounded-2xl flex justify-between items-center">
+                                        <div className="flex items-center gap-2">
+                                            <Gift size={16} className="text-red-500" />
+                                            <span className="text-red-500 font-black text-xs">특별 프로모션 할인</span>
+                                        </div>
+                                        <span className="text-red-500 font-black text-base font-outfit">-{formatKrw(data.finalQuote - data.finalBenefit)}</span>
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            setApplicationType('subscription');
-                                            setIsRentalMode(true);
-                                            setRentalStep(1);
-                                        }}
-                                        className="bg-[#c5a059] hover:bg-[#b08d48] text-[#001a3d] text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg transition-all active:scale-95 flex items-center gap-1 shrink-0"
-                                    >
-                                        신청하기 <ChevronRight size={10} />
-                                    </button>
-                                </h4>
-                                <p className="text-white/60 text-[11px] font-medium ml-8">전체 시공비를 최대 60개월 나눠 낼 수 있는 구독형 서비스 입니다.</p>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative z-10 text-center">
-                                {[24, 36, 48, 60].map(m => (
-                                    <div key={m} className={`p-5 rounded-3xl border ${m === 60 ? 'bg-[#c5a059] border-none shadow-2xl scale-105' : 'bg-white/10 border-white/10'} transition-all`}>
-                                        <div className="text-[9px] font-black opacity-70 mb-2 uppercase tracking-tighter">{m}개월 약정</div>
-                                        <div className="text-xl md:text-2xl font-black font-outfit leading-none whitespace-nowrap flex items-baseline justify-center">
-                                            <span>{new Intl.NumberFormat('ko-KR').format(data.subs?.[m] || 0)}</span>
-                                            <span className="text-[10px] ml-0.5 opacity-80 font-bold">/월</span>
+                                    <div className="pt-6 border-t border-dashed border-gray-100 flex flex-col md:flex-row justify-between items-end gap-2 md:gap-0">
+                                        <span className="text-[#001a3d] font-black text-sm md:items-start">최종 할인 혜택가</span>
+                                        <div className="text-right w-full md:w-auto">
+                                            <span className="text-4xl font-black text-[#2563eb] tracking-tighter font-outfit">{formatKrw(data.finalBenefit).replace('원', '')}</span>
+                                            <span className="text-xl font-black text-[#2563eb] ml-0.5">원</span>
                                         </div>
                                     </div>
-                                ))}
+
+                                    {/* 선납금 / 잔금 조정 영역 */}
+                                    <div className="bg-gray-50 p-5 rounded-3xl space-y-4 border border-gray-100">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">선납금 (현금/카드)</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        value={new Intl.NumberFormat('ko-KR').format(downPayment)}
+                                                        onChange={(e) => {
+                                                            const val = Number(e.target.value.replace(/[^0-9]/g, ''));
+                                                            if (val <= data.finalBenefit) {
+                                                                setDownPayment(val);
+                                                                setBalance(data.finalBenefit - val);
+                                                            }
+                                                        }}
+                                                        className="w-full bg-white border border-gray-200 rounded-xl py-3.5 px-3 pr-8 text-sm md:text-base font-black text-[#001a3d] outline-none focus:border-[#c5a059] focus:ring-2 focus:ring-[#c5a059]/10 transition-all text-right"
+                                                    />
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">원</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">잔금 (결제 예정)</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        readOnly
+                                                        value={new Intl.NumberFormat('ko-KR').format(balance)}
+                                                        className="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 px-3 pr-8 text-sm md:text-base font-black text-gray-500 outline-none text-right"
+                                                    />
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300">원</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-2 pt-2">
+                                            <button
+                                                onClick={() => handleConversion('full')}
+                                                className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-black transition-all shadow-sm ${conversionMode === 'full' ? 'bg-[#c5a059] text-[#001a3d] shadow-lg scale-[1.02]' : 'bg-white border-2 border-gray-100 text-[#001a3d] hover:border-gray-200 active:scale-95'}`}
+                                            >
+                                                <ArrowRightLeft size={16} /> 전액 구독 전환
+                                            </button>
+                                            <button
+                                                onClick={() => handleConversion('balance')}
+                                                className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-black transition-all shadow-sm ${conversionMode === 'balance' ? 'bg-[#c5a059] text-[#001a3d] shadow-lg scale-[1.02]' : 'bg-white border-2 border-gray-100 text-[#001a3d] hover:border-gray-200 active:scale-95'}`}
+                                            >
+                                                <ArrowRightLeft size={16} /> 잔금만 구독 전환
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {calculatedSubs && (
+                                        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                                            <div className="bg-[#001a3d] p-6 md:p-8 rounded-[2rem] text-white space-y-6">
+                                                <div className="flex justify-between items-center px-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Calculator size={16} className="text-[#c5a059]" />
+                                                        <h5 className="text-xs font-black">
+                                                            {conversionMode === 'full' ? '전액' : '잔금'} 구독 전환 견적
+                                                        </h5>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-white/50">* 이자 포함 금액</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                                                    {[24, 36, 48, 60].map(m => (
+                                                        <div 
+                                                            key={m} 
+                                                            className={`relative p-4 rounded-2xl border transition-all text-center space-y-1 ${m === 60 ? 'bg-white text-[#001a3d] border-white shadow-xl' : 'bg-white/5 border-white/10 opacity-70'}`}
+                                                        >
+                                                            <p className={`text-[9px] font-black uppercase tracking-tighter ${m === 60 ? 'text-[#001a3d]/50' : 'text-white/40'}`}>{m}개월 약정</p>
+                                                            <p className="text-base font-black font-outfit">{new Intl.NumberFormat('ko-KR').format(calculatedSubs[m])}원</p>
+                                                            {m === 60 && (
+                                                                <div className="absolute -top-2 -right-1">
+                                                                    <div className="bg-[#ef4444] text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg animate-pulse">
+                                                                        인기
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="flex flex-col gap-4">
+                                                    <button
+                                                        onClick={() => {
+                                                            setApplicationType('subscription');
+                                                            setIsRentalMode(true);
+                                                            setRentalStep(1);
+                                                            setRentalForm(prev => ({ 
+                                                                ...prev, 
+                                                                selectedAmount: 60, // Fixed to 60
+                                                                isConversion: true,
+                                                                conversionSubs: calculatedSubs,
+                                                                conversionMode: conversionMode,
+                                                                downPaymentToReport: conversionMode === 'balance' ? downPayment : 0
+                                                            }));
+                                                        }}
+                                                        className="w-full py-4 bg-[#c5a059] text-sm font-black text-[#001a3d] rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all shadow-xl flex items-center justify-center gap-2"
+                                                    >
+                                                        구독 신청하기 <ChevronRight size={16} />
+                                                    </button>
+                                                    <p className="text-[10px] text-center text-[#c5a059] font-bold">
+                                                        * 위 {conversionMode === 'full' ? '전액' : `잔금(${formatKrw(balance)})`}에 대한 월 구독료 견적입니다.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
                         {/* 3. 60개월 렌탈 고정형 패키지 */}
-                        <div className="premium-gradient p-6 md:p-10 text-white relative overflow-hidden shadow-xl shadow-[#001a3d]/10">
+                        <div className="bg-[#1e293b] p-6 md:p-10 text-white relative overflow-hidden shadow-xl shadow-black/10 rounded-[2.5rem]">
                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 rounded-full blur-[80px] -ml-24 -mb-24 opacity-30"></div>
                             <div className="relative z-10 mb-6">
                                 <div className="flex justify-between items-start md:items-center mb-2">
@@ -843,6 +954,7 @@ const CustomerPage = () => {
             <div className="pt-2 border-t border-gray-100/30 text-center">
                 <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/87d2040aa0130.png" alt="하단 로고" className="w-full max-w-2xl mx-auto object-contain opacity-100 rounded-2xl" />
             </div>
+        </div>
 
             {/* Contact Menu */}
             <div className="fixed bottom-8 right-8 z-[60] flex flex-col items-end gap-3">
@@ -1100,7 +1212,9 @@ const CustomerPage = () => {
                                         {(applicationType === 'subscription' ? [24, 36, 48, 60] : [11, 22, 33]).map((val) => {
                                             const isSubscription = applicationType === 'subscription';
                                             const calculation = isSubscription
-                                                ? formatKrw(data.subs?.[val] || 0)
+                                                ? (rentalForm.isConversion 
+                                                    ? formatKrw(rentalForm.conversionSubs?.[val] || 0)
+                                                    : formatKrw(data.subs?.[val] || 0))
                                                 : calculatePackage(data.finalBenefit, val * 10000, val * 500000 / 1.1);
                                             const isSelected = rentalForm.selectedAmount === val;
                                             const isDisabled = !isSubscription && calculation === '해당없음';
