@@ -76,7 +76,6 @@ export const getDraft = query({
                 .query("subscription_applications")
                 .withIndex("by_name_phone", (q) => q.eq("name", args.name).eq("phone", args.phone))
                 .filter((q) => q.eq(q.field("status"), "임시저장"))
-                .order("desc")
                 .first();
         }
         return draft;
@@ -123,7 +122,6 @@ export const saveDraft = mutation({
                 .query("subscription_applications")
                 .withIndex("by_name_phone", (q) => q.eq("name", args.name).eq("phone", args.phone))
                 .filter((q) => q.eq(q.field("status"), "임시저장"))
-                .order("desc")
                 .first();
         }
 
