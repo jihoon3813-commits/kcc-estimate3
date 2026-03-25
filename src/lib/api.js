@@ -276,7 +276,11 @@ export const saveRentalDraft = async (customerData, rentalForm) => {
             files: (rentalForm.files ? Object.entries(rentalForm.files).flatMap(([cat, files]) => 
                 files.filter(f => f.storageId).map(f => ({ category: cat, name: f.name, storageId: f.storageId }))
             ) : []),
-            agreements: rentalForm.agreements || { agree1: false, agree2: false, agree3: false }
+            agreements: {
+                agree1: rentalForm.agreements?.agree1 || false,
+                agree2: rentalForm.agreements?.agree2 || false,
+                agree3: rentalForm.agreements?.agree3 || false
+            }
         };
         const id = await convex.mutation(api.rentals.saveDraft, params);
         return { success: true, id };
@@ -407,7 +411,11 @@ export const saveSubscriptionDraft = async (customerData, form) => {
             files: (form.files ? Object.entries(form.files).flatMap(([cat, files]) => 
                 files.filter(f => f.storageId).map(f => ({ category: cat, name: f.name, storageId: f.storageId }))
             ) : []),
-            agreements: form.agreements || { agree1: false, agree2: false, agree3: false }
+            agreements: {
+                agree1: form.agreements?.agree1 || false,
+                agree2: form.agreements?.agree2 || false,
+                agree3: form.agreements?.agree3 || false
+            }
         };
         const id = await convex.mutation(api.subscriptions.saveDraft, params);
         return { success: true, id };
