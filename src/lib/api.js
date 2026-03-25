@@ -210,6 +210,11 @@ export const submitRentalApplication = async (customerData, rentalForm, draftId)
             gender: rentalForm.gender,
             selectedAmount: rentalForm.selectedAmount,
             ownershipType: rentalForm.ownershipType,
+            finalBenefit: customerData.finalBenefit || 0,
+            downPayment: rentalForm.downPaymentToReport || 0,
+            balance: (customerData.finalBenefit || 0) - (rentalForm.downPaymentToReport || 0),
+            conversionMode: rentalForm.conversionMode || '전액구독',
+            monthlyAmount: rentalForm.selectedAmount ? (rentalForm.selectedAmount === 11 ? 111000 : rentalForm.selectedAmount === 22 ? 222000 : rentalForm.selectedAmount === 33 ? 333000 : 0) : 0,
             files: uploadedFiles,
             agreements: rentalForm.agreements
         };
@@ -263,6 +268,11 @@ export const saveRentalDraft = async (customerData, rentalForm) => {
             gender: rentalForm.gender || "",
             selectedAmount: rentalForm.selectedAmount || 0,
             ownershipType: rentalForm.ownershipType || "own_own",
+            finalBenefit: customerData.finalBenefit || 0,
+            downPayment: rentalForm.downPaymentToReport || 0,
+            balance: (customerData.finalBenefit || 0) - (rentalForm.downPaymentToReport || 0),
+            conversionMode: rentalForm.conversionMode || '전액구독',
+            monthlyAmount: rentalForm.selectedAmount ? (rentalForm.selectedAmount === 11 ? 111000 : rentalForm.selectedAmount === 22 ? 222000 : rentalForm.selectedAmount === 33 ? 333000 : 0) : 0,
             files: (rentalForm.files ? Object.entries(rentalForm.files).flatMap(([cat, files]) => 
                 files.filter(f => f.storageId).map(f => ({ category: cat, name: f.name, storageId: f.storageId }))
             ) : []),
@@ -348,6 +358,11 @@ export const submitSubscriptionApplication = async (customerData, form, draftId)
             gender: form.gender,
             selectedAmount: form.selectedAmount,
             ownershipType: form.ownershipType,
+            finalBenefit: customerData.finalBenefit || 0,
+            downPayment: form.downPaymentToReport || 0,
+            balance: (customerData.finalBenefit || 0) - (form.downPaymentToReport || 0),
+            conversionMode: form.conversionMode || '전액구독',
+            monthlyAmount: (form.conversionSubs && form.selectedAmount) ? form.conversionSubs[form.selectedAmount] : 0,
             files: uploadedFiles,
             agreements: { ...form.agreements },
         };
@@ -384,6 +399,11 @@ export const saveSubscriptionDraft = async (customerData, form) => {
             gender: form.gender || "",
             selectedAmount: form.selectedAmount || 0,
             ownershipType: form.ownershipType || "own_own",
+            finalBenefit: customerData.finalBenefit || 0,
+            downPayment: form.downPaymentToReport || 0,
+            balance: (customerData.finalBenefit || 0) - (form.downPaymentToReport || 0),
+            conversionMode: form.conversionMode || '전액구독',
+            monthlyAmount: (form.conversionSubs && form.selectedAmount) ? form.conversionSubs[form.selectedAmount] : 0,
             files: (form.files ? Object.entries(form.files).flatMap(([cat, files]) => 
                 files.filter(f => f.storageId).map(f => ({ category: cat, name: f.name, storageId: f.storageId }))
             ) : []),

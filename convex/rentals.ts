@@ -17,6 +17,11 @@ export const submitApplication = mutation({
         gender: v.string(),
         selectedAmount: v.number(),
         ownershipType: v.string(),
+        finalBenefit: v.optional(v.number()),
+        downPayment: v.optional(v.number()),
+        balance: v.optional(v.number()),
+        conversionMode: v.optional(v.string()),
+        monthlyAmount: v.optional(v.number()),
         files: v.array(v.object({
             category: v.string(),
             name: v.string(),
@@ -92,6 +97,11 @@ export const saveDraft = mutation({
         gender: v.string(),
         selectedAmount: v.number(),
         ownershipType: v.string(),
+        finalBenefit: v.optional(v.number()),
+        downPayment: v.optional(v.number()),
+        balance: v.optional(v.number()),
+        conversionMode: v.optional(v.string()),
+        monthlyAmount: v.optional(v.number()),
         files: v.array(v.object({
             category: v.string(),
             name: v.string(),

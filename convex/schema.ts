@@ -50,6 +50,11 @@ export default defineSchema({
         gender: v.string(),
         selectedAmount: v.number(),
         ownershipType: v.string(),
+        finalBenefit: v.optional(v.number()),
+        downPayment: v.optional(v.number()),
+        balance: v.optional(v.number()),
+        conversionMode: v.optional(v.string()),
+        monthlyAmount: v.optional(v.number()),
         files: v.array(v.object({
             category: v.string(), // registry, contract, family, id_card
             name: v.string(),
@@ -74,6 +79,11 @@ export default defineSchema({
         gender: v.string(),
         selectedAmount: v.number(),
         ownershipType: v.string(),
+        finalBenefit: v.optional(v.number()),
+        downPayment: v.optional(v.number()),
+        balance: v.optional(v.number()),
+        conversionMode: v.optional(v.string()),
+        monthlyAmount: v.optional(v.number()),
         files: v.array(v.object({
             category: v.string(),
             name: v.string(),

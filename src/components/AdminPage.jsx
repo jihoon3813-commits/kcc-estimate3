@@ -1271,7 +1271,7 @@ const AdminPage = () => {
                                 <thead className="bg-[#2c3e50] text-white">
                                     <tr>
                                         {[
-                                            "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
+                                            "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "최종할인가", "선납금", "잔금", "구분", "개월", "월 구독료", "서류목록"
                                         ].map((th, i) => (
                                             <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
                                         ))}
@@ -1302,28 +1302,39 @@ const AdminPage = () => {
                                                 <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.birthDate}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.gender === 'male' ? '남성' : '여성'}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-blue-600">
-                                                    {item.selectedAmount === 11 ? '111,000' : item.selectedAmount === 22 ? '222,000' : item.selectedAmount === 33 ? '333,000' : item.selectedAmount}{item.selectedAmount >= 11 && item.selectedAmount <= 33 ? '원' : '만원'}
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">
+                                                    {item.ownershipType === 'own_own' ? '본인소유' : (item.ownershipType === 'family_own' ? '가족소유' : '이사예정')}
                                                 </td>
-                                                <td className="px-4 py-4">
-                                                    <div className="space-y-1.5 min-w-[240px]">
+                                                <td className="px-4 py-4 text-right whitespace-nowrap text-gray-700 text-xs">
+                                                    {item.finalBenefit ? Number(item.finalBenefit).toLocaleString() + '원' : '-'}
+                                                </td>
+                                                <td className="px-4 py-4 text-right whitespace-nowrap text-[#001a3d] font-bold text-xs">
+                                                    {item.downPayment ? Number(item.downPayment).toLocaleString() + '원' : '0원'}
+                                                </td>
+                                                <td className="px-4 py-4 text-right whitespace-nowrap text-gray-600 text-xs">
+                                                    {item.balance ? Number(item.balance).toLocaleString() + '원' : '-'}
+                                                </td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-600 text-xs font-bold">
+                                                    {item.conversionMode === 'full' ? '전액구독' : (item.conversionMode === 'balance' ? '잔금구독' : item.conversionMode || '전액구독')}
+                                                </td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap text-blue-600 font-bold text-xs">
+                                                    60개월
+                                                </td>
+                                                <td className="px-4 py-4 text-right whitespace-nowrap font-bold text-blue-600 text-xs">
+                                                    {item.monthlyAmount ? Number(item.monthlyAmount).toLocaleString() + '원' : (item.selectedAmount >= 11 && item.selectedAmount <= 33 ? Number(item.selectedAmount * 10000).toLocaleString() + '원' : '0원')}
+                                                </td>
+                                                <td className="px-4 py-4 text-left">
+                                                    <div className="flex flex-wrap gap-1.5 min-w-[120px]">
                                                         {item.files.map((file, fIdx) => (
                                                             <a
                                                                 key={fIdx}
                                                                 href={file.url}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-50 hover:bg-blue-50 rounded-lg group transition-all border border-gray-100"
+                                                                title={file.name}
+                                                                className="flex items-center justify-center w-8 h-8 bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all border border-gray-100"
                                                             >
-                                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                                    <span className="text-[10px] font-black text-white bg-[#c5a059] px-1.5 py-0.5 rounded shrink-0">
-                                                                        {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : '기타')))}
-                                                                    </span>
-                                                                    <span className="text-[11px] font-bold text-gray-600 truncate group-hover:text-blue-600 underline-offset-2 group-hover:underline">
-                                                                        {file.name}
-                                                                    </span>
-                                                                </div>
-                                                                <Download size={12} className="text-gray-300 group-hover:text-blue-500 shrink-0" />
+                                                                <FileText size={16} />
                                                             </a>
                                                         ))}
                                                     </div>
@@ -1380,7 +1391,7 @@ const AdminPage = () => {
                                     <thead className="bg-[#1a3a3a] text-white">
                                         <tr>
                                             {[
-                                                "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "신청금액", "서류목록 (파일명)"
+                                                "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "최종할인가", "선납금", "잔금", "구분", "개월", "월 구독료", "서류목록"
                                             ].map((th, i) => (
                                                 <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
                                             ))}
@@ -1414,26 +1425,36 @@ const AdminPage = () => {
                                                     <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">
                                                         {item.ownershipType === 'own_own' ? '본인소유' : (item.ownershipType === 'family_own' ? '가족소유' : '이사예정')}
                                                     </td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600">{item.selectedAmount}개월 ({formatKrw(item.monthlyAmount || 0)})</td>
-                                                    <td className="px-4 py-4">
-                                                        <div className="space-y-1.5 min-w-[240px]">
+                                                    <td className="px-4 py-4 text-right whitespace-nowrap text-gray-700 text-xs">
+                                                        {item.finalBenefit ? Number(item.finalBenefit).toLocaleString() + '원' : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-right whitespace-nowrap text-teal-800 font-bold text-xs">
+                                                        {item.downPayment ? Number(item.downPayment).toLocaleString() + '원' : '0원'}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-right whitespace-nowrap text-gray-600 text-xs">
+                                                        {item.balance ? Number(item.balance).toLocaleString() + '원' : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-600 text-xs font-bold">
+                                                        {item.conversionMode === 'full' ? '전액구독' : (item.conversionMode === 'balance' ? '잔금구독' : item.conversionMode || '전액구독')}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-teal-600 font-bold text-xs">
+                                                        {item.selectedAmount}개월
+                                                    </td>
+                                                    <td className="px-4 py-4 text-right whitespace-nowrap font-bold text-teal-600 text-xs">
+                                                        {item.monthlyAmount ? Number(item.monthlyAmount).toLocaleString() + '원' : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-left">
+                                                        <div className="flex flex-wrap gap-1.5 min-w-[120px]">
                                                             {item.files.map((file, fIdx) => (
                                                                 <a
                                                                     key={fIdx}
                                                                     href={file.url}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-50 hover:bg-teal-50 rounded-lg group transition-all border border-gray-100"
+                                                                    title={file.name}
+                                                                    className="flex items-center justify-center w-8 h-8 bg-gray-50 hover:bg-teal-50 text-gray-400 hover:text-teal-600 rounded-lg transition-all border border-gray-100"
                                                                 >
-                                                                    <div className="flex items-center gap-2 overflow-hidden">
-                                                                        <span className="text-[10px] font-black text-white bg-[#c5a059] px-1.5 py-0.5 rounded shrink-0">
-                                                                            {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : (file.category === 'bank_book' ? '통장' : '기타'))))}
-                                                                        </span>
-                                                                        <span className="text-[11px] font-bold text-gray-600 truncate group-hover:text-teal-600 underline-offset-2 group-hover:underline">
-                                                                            {file.name}
-                                                                        </span>
-                                                                    </div>
-                                                                    <Download size={12} className="text-gray-300 group-hover:text-teal-500 shrink-0" />
+                                                                    <FileText size={16} />
                                                                 </a>
                                                             ))}
                                                         </div>
