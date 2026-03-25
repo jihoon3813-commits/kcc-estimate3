@@ -149,14 +149,23 @@ export const listApplications = query({
         const results = [];
 
         for (const app of apps) {
-            let monthlyAmount = 0;
-            if (app.quoteId) {
+            let finalBenefit = (app as any).finalBenefit || 0;
+            let balance = (app as any).balance || 0;
+            let monthlyAmount = (app as any).monthlyAmount || 0;
+
+            if (app.quoteId && (!finalBenefit || !balance || !monthlyAmount)) {
                 const quote = await ctx.db.get(app.quoteId);
                 if (quote) {
                     const fb = (quote as any).finalBenefit || 0;
-                    const term = app.selectedAmount;
-                    const multiplier = term === 24 ? 1.15 : (term === 36 ? 1.20 : (term === 48 ? 1.25 : 1.30));
-                    monthlyAmount = Math.floor(fb / term * multiplier / 10) * 10;
+                    if (!finalBenefit) finalBenefit = fb;
+                    const dp = (app as any).downPayment || 0;
+                    if (!balance) balance = finalBenefit - dp;
+                    
+                    if (!monthlyAmount && app.selectedAmount) {
+                        const term = app.selectedAmount;
+                        const multiplier = term === 24 ? 1.15 : (term === 36 ? 1.20 : (term === 48 ? 1.25 : 1.30));
+                        monthlyAmount = Math.floor(fb / term * multiplier / 10) * 10;
+                    }
                 }
             }
 
@@ -168,6 +177,8 @@ export const listApplications = query({
             );
             results.push({
                 ...app,
+                finalBenefit,
+                balance,
                 monthlyAmount,
                 files: filesWithUrls,
             });

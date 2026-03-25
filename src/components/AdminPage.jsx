@@ -1273,58 +1273,58 @@ const AdminPage = () => {
                                         {[
                                             "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "최종할인가", "선납금", "잔금", "구분", "개월", "월 구독료", "서류목록"
                                         ].map((th, i) => (
-                                            <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
+                                            <th key={i} className="px-2 py-3.5 font-black whitespace-nowrap text-[11px] uppercase tracking-tighter first:pl-6 last:pr-6 text-center">{th}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredRentalList.length === 0 ? (
                                         <tr>
-                                            <td colSpan="9" className="text-center py-20 text-gray-400 font-bold">렌탈 신청 내역이 없습니다.</td>
+                                            <td colSpan="15" className="text-center py-20 text-gray-400 font-bold">렌탈 신청 내역이 없습니다.</td>
                                         </tr>
                                     ) : (
                                         filteredRentalList.map((item, idx) => (
                                             <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
-                                                <td className="px-4 py-4 text-center font-bold text-gray-300">{filteredRentalList.length - idx}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap">
+                                                <td className="px-2 py-3.5 text-center font-bold text-gray-300">{filteredRentalList.length - idx}</td>
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap">
                                                     <select
                                                         value={item.status || '접수'}
                                                         onChange={(e) => handleRentalStatusChange(item, e.target.value)}
-                                                        className={`text-[10px] font-black px-2 py-1 rounded-lg border-none cursor-pointer focus:ring-2 focus:ring-[#2c3e50]/30 transition-all ${RENTAL_STATUS_OPTIONS.find(opt => opt.value === (item.status || '접수'))?.color || 'bg-gray-100 text-gray-600'}`}
+                                                        className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg border-none cursor-pointer focus:ring-1 focus:ring-[#2c3e50]/30 transition-all ${RENTAL_STATUS_OPTIONS.find(opt => opt.value === (item.status || '접수'))?.color || 'bg-gray-100 text-gray-600'}`}
                                                     >
                                                         {RENTAL_STATUS_OPTIONS.map(opt => (
                                                             <option key={opt.value} value={opt.value} className="bg-white text-gray-700">{opt.label}</option>
                                                         ))}
                                                     </select>
                                                 </td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-400 text-[11px]">{new Date(item.createdAt || Date.now()).toLocaleString()}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-blue-600 hover:text-blue-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.birthDate}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.gender === 'male' ? '남성' : '여성'}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">
-                                                    {item.ownershipType === 'own_own' ? '본인소유' : (item.ownershipType === 'family_own' ? '가족소유' : '이사예정')}
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap font-medium text-gray-400 text-[10px]">{item.createdAt ? item.createdAt.split('T')[0].replace(/-/g, '.') : '-'}</td>
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap font-bold text-blue-600 hover:text-blue-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 font-mono text-[10px]">{item.phone}</td>
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.birthDate}</td>
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.gender === 'male' ? '남' : '여'}</td>
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">
+                                                    {item.ownershipType === 'own_own' ? '본인' : (item.ownershipType === 'family_own' ? '가족' : '이사')}
                                                 </td>
-                                                <td className="px-4 py-4 text-right whitespace-nowrap text-gray-700 text-xs">
+                                                <td className="px-2 py-3.5 text-right whitespace-nowrap text-gray-700 text-[10px]">
                                                     {item.finalBenefit ? Number(item.finalBenefit).toLocaleString() + '원' : '-'}
                                                 </td>
-                                                <td className="px-4 py-4 text-right whitespace-nowrap text-[#001a3d] font-bold text-xs">
+                                                <td className="px-2 py-3.5 text-right whitespace-nowrap text-[#001a3d] font-bold text-[10px]">
                                                     {item.downPayment ? Number(item.downPayment).toLocaleString() + '원' : '0원'}
                                                 </td>
-                                                <td className="px-4 py-4 text-right whitespace-nowrap text-gray-600 text-xs">
+                                                <td className="px-2 py-3.5 text-right whitespace-nowrap text-gray-600 text-[10px]">
                                                     {item.balance ? Number(item.balance).toLocaleString() + '원' : '-'}
                                                 </td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-gray-600 text-xs font-bold">
-                                                    {item.conversionMode === 'full' ? '전액구독' : (item.conversionMode === 'balance' ? '잔금구독' : item.conversionMode || '전액구독')}
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-600 text-[10px] font-bold">
+                                                    {item.conversionMode === 'full' ? '전액' : (item.conversionMode === 'balance' ? '잔금' : item.conversionMode?.replace('구독','') || '전액')}
                                                 </td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap text-blue-600 font-bold text-xs">
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap text-blue-600 font-bold text-[10px]">
                                                     60개월
                                                 </td>
-                                                <td className="px-4 py-4 text-right whitespace-nowrap font-bold text-blue-600 text-xs">
+                                                <td className="px-2 py-3.5 text-right whitespace-nowrap font-bold text-blue-600 text-[10px]">
                                                     {item.monthlyAmount ? Number(item.monthlyAmount).toLocaleString() + '원' : (item.selectedAmount >= 11 && item.selectedAmount <= 33 ? Number(item.selectedAmount * 10000).toLocaleString() + '원' : '0원')}
                                                 </td>
-                                                <td className="px-4 py-4 text-left">
-                                                    <div className="flex flex-wrap gap-1.5 min-w-[120px]">
+                                                <td className="px-2 py-3.5 text-left">
+                                                    <div className="flex flex-wrap gap-1 min-w-[80px]">
                                                         {item.files.map((file, fIdx) => (
                                                             <a
                                                                 key={fIdx}
@@ -1393,57 +1393,57 @@ const AdminPage = () => {
                                             {[
                                                 "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "최종할인가", "선납금", "잔금", "구분", "개월", "월 구독료", "서류목록"
                                             ].map((th, i) => (
-                                                <th key={i} className="px-4 py-4 font-black whitespace-nowrap text-xs uppercase tracking-tight first:pl-8 last:pr-8 text-center">{th}</th>
+                                                <th key={i} className="px-2 py-3.5 font-black whitespace-nowrap text-[11px] uppercase tracking-tighter first:pl-6 last:pr-6 text-center">{th}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {filteredSubscriptionList.length === 0 ? (
                                             <tr>
-                                                <td colSpan="9" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
+                                                <td colSpan="15" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
                                             </tr>
                                         ) : (
                                             filteredSubscriptionList.map((item, idx) => (
                                                 <tr key={idx} className="hover:bg-teal-50/30 transition-colors">
-                                                    <td className="px-4 py-4 text-center font-bold text-gray-300">{filteredSubscriptionList.length - idx}</td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap">
+                                                    <td className="px-2 py-3.5 text-center font-bold text-gray-300">{filteredSubscriptionList.length - idx}</td>
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap">
                                                         <select
                                                             value={item.status || '접수'}
                                                             onChange={(e) => handleSubscriptionStatusChange(item, e.target.value)}
-                                                            className={`text-[10px] font-black px-2 py-1 rounded-lg border-none cursor-pointer focus:ring-2 focus:ring-[#1a3a3a]/30 transition-all ${SUBSCRIPTION_STATUS_OPTIONS.find(opt => opt.value === (item.status || '접수'))?.color || 'bg-gray-100 text-gray-600'}`}
+                                                            className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg border-none cursor-pointer focus:ring-1 focus:ring-[#1a3a3a]/30 transition-all ${SUBSCRIPTION_STATUS_OPTIONS.find(opt => opt.value === (item.status || '접수'))?.color || 'bg-gray-100 text-gray-600'}`}
                                                         >
                                                             {SUBSCRIPTION_STATUS_OPTIONS.map(opt => (
                                                                 <option key={opt.value} value={opt.value} className="bg-white text-gray-700">{opt.label}</option>
                                                             ))}
                                                         </select>
                                                     </td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-400 text-[11px]">{new Date(item.createdAt || Date.now()).toLocaleString()}</td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-teal-600 hover:text-teal-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 font-mono text-xs">{item.phone}</td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.birthDate}</td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">{item.gender === 'male' ? '남성' : '여성'}</td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-500 text-xs">
-                                                        {item.ownershipType === 'own_own' ? '본인소유' : (item.ownershipType === 'family_own' ? '가족소유' : '이사예정')}
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap font-medium text-gray-400 text-[10px]">{item.createdAt ? item.createdAt.split('T')[0].replace(/-/g, '.') : '-'}</td>
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap font-bold text-teal-600 hover:text-teal-800 cursor-pointer underline decoration-wavy underline-offset-4" onClick={() => handleRentalNameClick(item)}>{item.name}</td>
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 font-mono text-[10px]">{item.phone}</td>
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.birthDate}</td>
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.gender === 'male' ? '남' : '여'}</td>
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">
+                                                        {item.ownershipType === 'own_own' ? '본인' : (item.ownershipType === 'family_own' ? '가족' : '이사')}
                                                     </td>
-                                                    <td className="px-4 py-4 text-right whitespace-nowrap text-gray-700 text-xs">
+                                                    <td className="px-2 py-3.5 text-right whitespace-nowrap text-gray-700 text-[10px]">
                                                         {item.finalBenefit ? Number(item.finalBenefit).toLocaleString() + '원' : '-'}
                                                     </td>
-                                                    <td className="px-4 py-4 text-right whitespace-nowrap text-teal-800 font-bold text-xs">
+                                                    <td className="px-2 py-3.5 text-right whitespace-nowrap text-teal-800 font-bold text-[10px]">
                                                         {item.downPayment ? Number(item.downPayment).toLocaleString() + '원' : '0원'}
                                                     </td>
-                                                    <td className="px-4 py-4 text-right whitespace-nowrap text-gray-600 text-xs">
+                                                    <td className="px-2 py-3.5 text-right whitespace-nowrap text-gray-600 text-[10px]">
                                                         {item.balance ? Number(item.balance).toLocaleString() + '원' : '-'}
                                                     </td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-gray-600 text-xs font-bold">
-                                                        {item.conversionMode === 'full' ? '전액구독' : (item.conversionMode === 'balance' ? '잔금구독' : item.conversionMode || '전액구독')}
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-600 text-[10px] font-bold">
+                                                        {item.conversionMode === 'full' ? '전액' : (item.conversionMode === 'balance' ? '잔금' : item.conversionMode?.replace('구독','') || '전액')}
                                                     </td>
-                                                    <td className="px-4 py-4 text-center whitespace-nowrap text-teal-600 font-bold text-xs">
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap text-teal-600 font-bold text-[10px]">
                                                         {item.selectedAmount}개월
                                                     </td>
-                                                    <td className="px-4 py-4 text-right whitespace-nowrap font-bold text-teal-600 text-xs">
+                                                    <td className="px-2 py-3.5 text-right whitespace-nowrap font-bold text-teal-600 text-[10px]">
                                                         {item.monthlyAmount ? Number(item.monthlyAmount).toLocaleString() + '원' : '-'}
                                                     </td>
-                                                    <td className="px-4 py-4 text-left">
+                                                    <td className="px-2 py-3.5 text-left">
                                                         <div className="flex flex-wrap gap-1.5 min-w-[120px]">
                                                             {item.files.map((file, fIdx) => (
                                                                 <a

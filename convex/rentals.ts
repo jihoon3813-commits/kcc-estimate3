@@ -153,6 +153,23 @@ export const listApplications = query({
         const results = [];
 
         for (const app of apps) {
+            let finalBenefit = (app as any).finalBenefit || 0;
+            let balance = (app as any).balance || 0;
+            let monthlyAmount = (app as any).monthlyAmount || 0;
+
+            if (app.quoteId && (!finalBenefit || !balance)) {
+                const quote = await ctx.db.get(app.quoteId);
+                if (quote) {
+                    finalBenefit = (quote as any).finalBenefit || 0;
+                    // For old rental apps, downPayment was implicitly 0 or calculated based on selectedAmount
+                    const dp = (app as any).downPayment || 0;
+                    balance = finalBenefit - dp;
+                    if (!monthlyAmount && app.selectedAmount) {
+                         monthlyAmount = (app.selectedAmount === 11 ? 111000 : app.selectedAmount === 22 ? 222000 : app.selectedAmount === 33 ? 333000 : 0);
+                    }
+                }
+            }
+
             const filesWithUrls = await Promise.all(
                 app.files.map(async (f) => ({
                     ...f,
@@ -161,6 +178,9 @@ export const listApplications = query({
             );
             results.push({
                 ...app,
+                finalBenefit,
+                balance,
+                monthlyAmount,
                 files: filesWithUrls,
             });
         }
