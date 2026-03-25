@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload, Calculator, ArrowRightLeft } from 'lucide-react';
+import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload, Calculator, ArrowRightLeft, Wallet, Clock, Sparkles } from 'lucide-react';
 import { searchQuote, submitRentalApplication, submitSubscriptionApplication, getRentalDraft, saveRentalDraft, getSubscriptionDraft, saveSubscriptionDraft, uploadSingleFile } from '../lib/api';
 
 const CustomerPage = () => {
@@ -556,7 +556,7 @@ const CustomerPage = () => {
                                     </div>
                                     <span className="bg-[#facc15] text-[#1a1c23] text-[8px] font-black px-2.5 py-1 rounded shadow-sm uppercase">Best</span>
                                 </div>
-                                <div className="p-6 md:p-10 space-y-6 bg-white">
+                                <div className="p-4 md:p-10 space-y-6 bg-white">
                                     <div className="flex justify-between items-center text-xs">
                                         <span className="text-gray-400 font-bold">정상 견적금액 (상세항목 합계)</span>
                                         <span className="text-gray-400 font-bold text-base line-through font-outfit">{formatKrw(data.finalQuote)}</span>
@@ -576,11 +576,26 @@ const CustomerPage = () => {
                                         </div>
                                     </div>
 
-                                    {/* 선납금 / 잔금 조정 영역 */}
-                                    <div className="bg-gray-50 p-5 rounded-3xl space-y-4 border border-gray-100">
-                                        <div className="grid grid-cols-2 gap-4">
+                                    {/* 선납금 / 잔금 조정 영역 - Enhanced Premium Design */}
+                                    <div className="bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/50 p-4 md:p-6 rounded-[2rem] space-y-5 border border-blue-100/50 shadow-sm mt-4 relative">
+                                        <div className="absolute top-0 right-0 -mr-6 -mt-6 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl"></div>
+                                        
+                                        <div className="flex items-center justify-between mb-1">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div>
+                                                <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">스마트 구독 안내</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 bg-blue-100 px-2 py-1 rounded-full whitespace-nowrap shrink-0">
+                                                <Sparkles size={10} className="text-blue-600 animate-pulse" />
+                                                <span className="text-[9px] font-black text-blue-700">부담 제약 해소</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 md:gap-4">
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">선납금 (현금/카드)</label>
+                                                <label className="text-[10px] font-black text-blue-900/40 uppercase tracking-widest ml-1 flex items-center gap-1">
+                                                    <Wallet size={12} className="text-blue-500" /> 선납금
+                                                </label>
                                                 <div className="relative">
                                                     <input
                                                         type="text"
@@ -593,38 +608,68 @@ const CustomerPage = () => {
                                                                 setBalance(data.finalBenefit - val);
                                                             }
                                                         }}
-                                                        className="w-full bg-white border border-gray-200 rounded-xl py-3.5 px-3 pr-8 text-sm md:text-base font-black text-[#001a3d] outline-none focus:border-[#c5a059] focus:ring-2 focus:ring-[#c5a059]/10 transition-all text-right"
+                                                        className="w-full bg-white border border-blue-100 rounded-xl py-3 px-2 pr-6 text-[12px] min-[375px]:text-sm md:text-base font-black text-[#001a3d] outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-400/10 transition-all text-right shadow-sm"
                                                     />
                                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">원</span>
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">잔금 (결제 예정)</label>
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                                                    <Clock size={12} /> 잔금
+                                                </label>
                                                 <div className="relative">
                                                     <input
                                                         type="text"
                                                         readOnly
                                                         value={new Intl.NumberFormat('ko-KR').format(balance)}
-                                                        className="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 px-3 pr-8 text-sm md:text-base font-black text-gray-500 outline-none text-right"
+                                                        className="w-full bg-blue-50/50 border border-blue-100/30 rounded-xl py-3 px-2 pr-6 text-[12px] min-[375px]:text-sm md:text-base font-black text-blue-900/50 outline-none text-right"
                                                     />
                                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300">원</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-2 pt-2">
-                                            <button
-                                                onClick={() => handleConversion('full')}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-black transition-all shadow-sm ${conversionMode === 'full' ? 'bg-[#c5a059] text-[#001a3d] shadow-lg scale-[1.02]' : 'bg-white border-2 border-gray-100 text-[#001a3d] hover:border-gray-200 active:scale-95'}`}
-                                            >
-                                                <ArrowRightLeft size={16} /> 전액 구독 전환
-                                            </button>
-                                            <button
-                                                onClick={() => handleConversion('balance')}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-black transition-all shadow-sm ${conversionMode === 'balance' ? 'bg-[#c5a059] text-[#001a3d] shadow-lg scale-[1.02]' : 'bg-white border-2 border-gray-100 text-[#001a3d] hover:border-gray-200 active:scale-95'}`}
-                                            >
-                                                <ArrowRightLeft size={16} /> 잔금만 구독 전환
-                                            </button>
+                                        <div className="relative pt-8 mt-2">
+                                            <div className="absolute top-0 left-0 right-0 flex justify-center z-10">
+                                                <div className="bg-blue-600 text-white text-[9px] font-black px-3 py-1 rounded-full shadow-lg animate-bounce whitespace-nowrap border border-white/20">
+                                                    목돈 부담을 줄이는 최고의 방법! ✨
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-2.5 pt-2">
+                                                <button
+                                                    onClick={() => handleConversion('full')}
+                                                    className={`group relative flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-black transition-all shadow-md overflow-hidden ${conversionMode === 'full' 
+                                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-200' 
+                                                        : 'bg-white border-2 border-blue-50 text-blue-600 hover:border-blue-200'}`}
+                                                >
+                                                    <ArrowRightLeft size={16} /> 전액 구독 전환
+                                                </button>
+                                                <button
+                                                    onClick={() => handleConversion('balance')}
+                                                    className={`group relative flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-black transition-all shadow-md overflow-hidden ring-2 ring-yellow-400/20 ${conversionMode === 'balance' 
+                                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-200' 
+                                                        : 'bg-white border-2 border-yellow-400 text-blue-700 shadow-yellow-100 shadow-lg'}`}
+                                                >
+                                                    {/* Golden Shimmer Effect */}
+                                                    <div className="absolute inset-0 w-[200%] h-full bg-gradient-to-r from-transparent via-yellow-200/40 to-transparent -translate-x-full animate-[shimmer_3s_infinite] pointer-events-none"></div>
+                                                    
+                                                    <style dangerouslySetInnerHTML={{ __html: `
+                                                        @keyframes shimmer {
+                                                            0% { transform: translateX(-100%); }
+                                                            100% { transform: translateX(100%); }
+                                                        }
+                                                    `}} />
+                                                    
+                                                    <ArrowRightLeft size={16} className={conversionMode === 'balance' ? 'text-white' : 'text-yellow-600'} /> 
+                                                    <span className={conversionMode === 'balance' ? 'text-white' : 'text-[#001a3d]'}>잔금만 구독 전환</span>
+                                                    
+                                                    {!conversionMode && (
+                                                        <div className="absolute top-0 right-0 bg-yellow-400 text-[#001a3d] text-[10px] px-2 py-0.5 font-black rounded-bl-lg shadow-sm">
+                                                            추천
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 
