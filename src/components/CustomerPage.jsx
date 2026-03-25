@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload } from 'lucide-react';
-import { searchQuote, submitRentalApplication, submitSubscriptionApplication } from '../lib/api';
+import { searchQuote, submitRentalApplication, submitSubscriptionApplication, getRentalDraft, saveRentalDraft, getSubscriptionDraft, saveSubscriptionDraft, uploadSingleFile } from '../lib/api';
 
 const CustomerPage = () => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -10,6 +10,10 @@ const CustomerPage = () => {
     const [appliances, setAppliances] = useState({ A: [], B: [] });
     const [loading, setLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [showSaveToast, setShowSaveToast] = useState(false);
+    const [saveMessage, setSaveMessage] = useState("[임시저장 완료]");
+    const [draftId, setDraftId] = useState(null);
 
     const [searchForm, setSearchForm] = useState({ name: '', phone: '' });
 
@@ -26,7 +30,7 @@ const CustomerPage = () => {
         selectedAmount: null, // 11, 22, 33
         ownershipType: 'own_own', // 'own_own', 'move_own', 'family_own'
         files: {
-            registry: [],
+            registry: [], // Now will store { name: string, storageId: string } items
             contract: [],
             family: [],
             id_card: [],
@@ -142,6 +146,72 @@ const CustomerPage = () => {
         }
     }, []);
 
+    // Load Draft
+    React.useEffect(() => {
+        if (isRentalMode && data) {
+            const loadDraft = async () => {
+                const apiFunc = applicationType === 'subscription' ? getSubscriptionDraft : getRentalDraft;
+                const res = await apiFunc({
+                    quoteId: data._id,
+                    name: data.name,
+                    phone: data.phone || searchForm.phone
+                });
+
+                if (res.success && res.data) {
+                    const draft = res.data;
+                    setDraftId(draft._id);
+                    
+                    // Construct files structure from array
+                    const filesObj = {
+                        registry: [], contract: [], family: [], id_card: [], bank_book: []
+                    };
+                    if (draft.files) {
+                        draft.files.forEach(f => {
+                            if (filesObj[f.category]) filesObj[f.category].push(f);
+                        });
+                    }
+
+                    setRentalForm({
+                        birthDate: draft.birthDate || '',
+                        gender: draft.gender || '',
+                        selectedAmount: draft.selectedAmount || null,
+                        ownershipType: draft.ownershipType || 'own_own',
+                        files: filesObj,
+                        agreements: draft.agreements || { agree1: false, agree2: false, agree3: false }
+                    });
+                }
+            };
+            loadDraft();
+        } else if (!isRentalMode) {
+            // Reset draft ID when closing
+            setDraftId(null);
+        }
+    }, [isRentalMode, applicationType, data]);
+
+    // Auto-save debounced fields
+    React.useEffect(() => {
+        if (!isRentalMode || !data) return;
+
+        const timer = setTimeout(async () => {
+            const apiFunc = applicationType === 'subscription' ? saveSubscriptionDraft : saveRentalDraft;
+            setIsSaving(true);
+            const res = await apiFunc(data, rentalForm);
+            setIsSaving(false);
+            if (res.success) {
+                setDraftId(res.id);
+                setSaveMessage("[정보 저장 완료]");
+                setShowSaveToast(true);
+                setTimeout(() => setShowSaveToast(false), 2000);
+            } else {
+                console.error("Auto-save failed:", res.message);
+                // We typically don't alert on auto-save unless it's critical,
+                // but for debugging the user's issue, we'll log it clearly.
+            }
+        }, 3000); // 3 seconds debounce
+
+        return () => clearTimeout(timer);
+    }, [rentalForm.birthDate, rentalForm.gender, rentalForm.selectedAmount, rentalForm.ownershipType, rentalForm.agreements]);
+
     const handleSearch = (e) => {
         e.preventDefault();
         executeSearch(searchForm.name, searchForm.phone, statusType);
@@ -155,27 +225,61 @@ const CustomerPage = () => {
         return advancePayment < 0 ? "해당없음" : formatKrw(advancePayment);
     };
 
-    const handleFileUpload = (type, e) => {
+    const handleFileUpload = async (type, e) => {
         if (e.target.files && e.target.files.length > 0) {
-            const newFiles = Array.from(e.target.files);
-            setRentalForm(prev => ({
-                ...prev,
-                files: {
-                    ...prev.files,
-                    [type]: [...(prev.files[type] || []), ...newFiles]
+            const filesToAdd = Array.from(e.target.files);
+            setIsSaving(true);
+            
+            try {
+                const uploadedResults = await Promise.all(filesToAdd.map(async (file) => {
+                    const storageId = await uploadSingleFile(file);
+                    return { name: file.name, storageId };
+                }));
+
+                const updatedForm = {
+                    ...rentalForm,
+                    files: {
+                        ...rentalForm.files,
+                        [type]: [...(rentalForm.files[type] || []), ...uploadedResults]
+                    }
+                };
+
+                setRentalForm(updatedForm);
+
+                // Immediate save draft after file upload
+                const apiFunc = applicationType === 'subscription' ? saveSubscriptionDraft : saveRentalDraft;
+                const res = await apiFunc(data, updatedForm);
+                if (res.success) {
+                    setDraftId(res.id);
+                    setSaveMessage("[첨부파일 저장완료]");
+                    setShowSaveToast(true);
+                    setTimeout(() => setShowSaveToast(false), 4000);
+                } else {
+                    alert("정보 저장 중 오류가 발생했습니다: " + res.message);
                 }
-            }));
+            } catch (err) {
+                console.error("File auto-upload error:", err);
+                alert("파일 업로드 중 오류가 발생했습니다.");
+            } finally {
+                setIsSaving(false);
+            }
         }
     };
 
-    const removeFile = (type, index) => {
-        setRentalForm(prev => ({
-            ...prev,
+    const removeFile = async (type, index) => {
+        const updatedFiles = rentalForm.files[type].filter((_, i) => i !== index);
+        const updatedForm = {
+            ...rentalForm,
             files: {
-                ...prev.files,
-                [type]: prev.files[type].filter((_, i) => i !== index)
+                ...rentalForm.files,
+                [type]: updatedFiles
             }
-        }));
+        };
+        setRentalForm(updatedForm);
+
+        // Save draft after removal
+        const apiFunc = applicationType === 'subscription' ? saveSubscriptionDraft : saveRentalDraft;
+        await apiFunc(data, updatedForm);
     };
 
     if (!isLoggedIn) {
@@ -900,6 +1004,12 @@ const CustomerPage = () => {
                                     <ChevronRight size={24} className="rotate-180 text-[#001a3d]" />
                                 </button>
                                 <h2 className="text-lg font-black text-[#001a3d]">{applicationType === 'subscription' ? '스마트 구독 서비스 신청' : '렌탈 서비스 신청'}</h2>
+                                {isSaving && (
+                                    <div className="flex items-center gap-1.5 ml-3 bg-blue-50 px-2.5 py-1 rounded-lg animate-pulse border border-blue-100/50 shadow-sm">
+                                        <Loader2 size={12} className="animate-spin text-blue-600" />
+                                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">정보 수정 중...</span>
+                                    </div>
+                                )}
                             </div>
                             <div className="text-[10px] font-black text-[#c5a059] bg-[#c5a059]/10 px-3 py-1 rounded-full">
                                 Step {rentalStep} / 4
@@ -1038,9 +1148,27 @@ const CustomerPage = () => {
                             {/* STEP 3: Document Upload */}
                             {rentalStep === 3 && (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                                    {/* Real-time Save Notice Banner */}
+                                    <div className="bg-blue-50/50 border border-blue-100 p-5 rounded-[2rem] space-y-3 shadow-sm">
+                                        <div className="flex items-center gap-2 text-blue-700">
+                                            <div className="w-6 h-6 bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-lg">
+                                                <CheckCircle size={14} />
+                                            </div>
+                                            <span className="text-[11px] font-black uppercase tracking-[0.1em]">Security & Auto-Save</span>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-gray-900 text-[13px] font-black leading-tight break-keep">
+                                                업로드된 파일은 실시간으로 안전하게 자동 저장됩니다.
+                                            </p>
+                                            <p className="text-gray-500 text-[11px] font-bold leading-relaxed break-keep">
+                                                모든 서류 준비가 끝났다면 [다음으로]를 눌러 신청을 완료하시고, 서류가 더 필요하다면 창을 닫으신 후 나중에 다시 업로드하셔도 됩니다.
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2">
                                         <h3 className="text-2xl font-black text-[#001a3d]">필수 서류를<br />등록해주세요</h3>
-                                        <p className="text-gray-500 text-sm font-bold">부동산 소유 형태에 따라 필요한 서류가 다릅니다.</p>
+                                        <p className="text-gray-500 text-sm font-bold opacity-80">부동산 소유 형태에 따라 필요한 서류가 다릅니다.</p>
                                     </div>
 
                                     <div className="space-y-6">
@@ -1195,8 +1323,8 @@ const CustomerPage = () => {
                                                             if (window.confirm(`${applicationType === 'subscription' ? '구독' : '렌탈'} 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.`)) {
                                                                 setIsSubmitting(true);
                                                                 const res = applicationType === 'subscription'
-                                                                    ? await submitSubscriptionApplication(data, rentalForm)
-                                                                    : await submitRentalApplication(data, rentalForm);
+                                                                    ? await submitSubscriptionApplication(data, rentalForm, draftId)
+                                                                    : await submitRentalApplication(data, rentalForm, draftId);
                                                                 setIsSubmitting(false);
 
                                                                 if (res.success) {
@@ -1341,7 +1469,20 @@ const CustomerPage = () => {
 
                         {/* Bottom Action Button */}
                         {rentalStep <= 4 && !(rentalStep === 4 && applicationType === 'subscription') && (
-                            <div className="p-5 md:p-8 bg-white border-t border-gray-100 safe-area-bottom">
+                            <div className="p-5 md:p-8 bg-white border-t border-gray-100 safe-area-bottom flex flex-col gap-3">
+                                {rentalStep === 3 && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm("첨부파일을 업데이트 하시겠습니까?")) {
+                                                alert("첨부파일 정보가 안전하게 업데이트 되었습니다.");
+                                                setIsRentalMode(false);
+                                            }
+                                        }}
+                                        className="w-full bg-gray-50 text-[#001a3d] py-4 rounded-2xl text-base font-black transition-all border border-gray-100 flex items-center justify-center gap-2 hover:bg-gray-100 active:scale-[0.98]"
+                                    >
+                                        첨부파일 업데이트 하기
+                                    </button>
+                                )}
                                 <button
                                     disabled={(() => {
                                         if (rentalStep === 1) return !rentalForm.birthDate || rentalForm.birthDate.length < 10 || !rentalForm.gender;
@@ -1351,9 +1492,9 @@ const CustomerPage = () => {
                                             return !rentalForm.selectedAmount || calc === '해당없음';
                                         }
                                         if (rentalStep === 3) {
-                                            if (rentalForm.ownershipType === 'own_own') return rentalForm.files.registry.length === 0 || rentalForm.files.id_card.length === 0 || rentalForm.files.bank_book.length === 0;
-                                            if (rentalForm.ownershipType === 'family_own') return rentalForm.files.registry.length === 0 || rentalForm.files.family.length === 0 || rentalForm.files.id_card.length === 0 || rentalForm.files.bank_book.length === 0;
-                                            if (rentalForm.ownershipType === 'move_own') return rentalForm.files.contract.length === 0 || rentalForm.files.id_card.length === 0 || rentalForm.files.bank_book.length === 0;
+                                            // Allow proceeding if at least one file is uploaded across any category
+                                            const allFiles = Object.values(rentalForm.files).flat();
+                                            return allFiles.length === 0;
                                         }
                                         if (rentalStep === 4) {
                                             return !rentalForm.agreements.agree1 || !rentalForm.agreements.agree2 || !rentalForm.agreements.agree3;
@@ -1367,7 +1508,7 @@ const CustomerPage = () => {
                                             // Handle final submission for RENTAL (Subscription is handled inside STEP 4 UI)
                                             if (window.confirm('렌탈 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.')) {
                                                 setIsSubmitting(true);
-                                                const res = await submitRentalApplication(data, rentalForm);
+                                                const res = await submitRentalApplication(data, rentalForm, draftId);
                                                 setIsSubmitting(false);
 
                                                 if (res.success) {
@@ -1383,9 +1524,19 @@ const CustomerPage = () => {
                                     }}
                                     className="w-full bg-[#001a3d] text-white py-4 rounded-2xl text-lg font-black shadow-xl hover:bg-blue-900 active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
                                 >
-                                    {isSubmitting ? <Loader2 className="animate-spin" /> : (rentalStep === 4 ? '신청 완료하기' : '다음으로')}
+                                    {isSubmitting ? <Loader2 className="animate-spin" /> : (
+                                        rentalStep === 4 ? '신청 완료하기' : (rentalStep === 3 ? '신용조회 동의하러 가기' : '다음으로')
+                                    )}
                                     {!isSubmitting && rentalStep < 4 && <ChevronRight size={20} />}
                                 </button>
+                            </div>
+                        )}
+                        {showSaveToast && (
+                            <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[300] bg-[#001a3d] text-[#c5a059] px-8 py-4 rounded-2xl font-black text-sm shadow-2xl animate-in fade-in slide-in-from-top-4 flex items-center gap-3 border-2 border-[#c5a059]/30 backdrop-blur-xl">
+                                <div className="w-6 h-6 bg-[#c5a059] text-[#001a3d] rounded-lg flex items-center justify-center shadow-lg">
+                                    <CheckCircle size={16} />
+                                </div>
+                                <span className="text-white tracking-tight">{saveMessage}</span>
                             </div>
                         )}
                     </div>

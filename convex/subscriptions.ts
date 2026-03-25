@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 
 export const submitApplication = mutation({
     args: {
+        id: v.optional(v.id("subscription_applications")), // Optional ID for existing draft
         quoteId: v.optional(v.id("quotes")),
         name: v.string(),
         phone: v.string(),
@@ -24,11 +25,22 @@ export const submitApplication = mutation({
         }),
     },
     handler: async (ctx, args) => {
-        const id = await ctx.db.insert("subscription_applications", {
-            ...args,
-            status: "접수",
-            createdAt: new Date().toISOString(),
-        });
+        const { id, ...data } = args;
+        let finalId;
+
+        if (id) {
+            await ctx.db.patch(id, {
+                ...data,
+                status: "접수",
+            });
+            finalId = id;
+        } else {
+            finalId = await ctx.db.insert("subscription_applications", {
+                ...data,
+                status: "접수",
+                createdAt: new Date().toISOString(),
+            });
+        }
 
         // Send Discord Notification
         await ctx.scheduler.runAfter(0, internal.discord.sendNotification, {
@@ -39,7 +51,84 @@ export const submitApplication = mutation({
             address: args.address,
         });
 
-        return id;
+        return finalId;
+    },
+});
+
+export const getDraft = query({
+    args: { quoteId: v.optional(v.id("quotes")), name: v.string(), phone: v.string() },
+    handler: async (ctx, args) => {
+        let draft;
+        if (args.quoteId) {
+            draft = await ctx.db
+                .query("subscription_applications")
+                .withIndex("by_quoteId", (q) => q.eq("quoteId", args.quoteId))
+                .filter((q) => q.eq(q.field("status"), "임시저장"))
+                .first();
+        }
+        if (!draft) {
+            draft = await ctx.db
+                .query("subscription_applications")
+                .withIndex("by_name_phone", (q) => q.eq("name", args.name).eq("phone", args.phone))
+                .filter((q) => q.eq(q.field("status"), "임시저장"))
+                .order("desc")
+                .first();
+        }
+        return draft;
+    },
+});
+
+export const saveDraft = mutation({
+    args: {
+        quoteId: v.optional(v.id("quotes")),
+        name: v.string(),
+        phone: v.string(),
+        address: v.string(),
+        birthDate: v.string(),
+        gender: v.string(),
+        selectedAmount: v.number(),
+        ownershipType: v.string(),
+        files: v.array(v.object({
+            category: v.string(),
+            name: v.string(),
+            storageId: v.string(),
+        })),
+        agreements: v.object({
+            agree1: v.boolean(),
+            agree2: v.boolean(),
+            agree3: v.boolean(),
+        }),
+    },
+    handler: async (ctx, args) => {
+        let existingDraft;
+        if (args.quoteId) {
+            existingDraft = await ctx.db
+                .query("subscription_applications")
+                .withIndex("by_quoteId", (q) => q.eq("quoteId", args.quoteId))
+                .filter((q) => q.eq(q.field("status"), "임시저장"))
+                .first();
+        }
+        if (!existingDraft) {
+            existingDraft = await ctx.db
+                .query("subscription_applications")
+                .withIndex("by_name_phone", (q) => q.eq("name", args.name).eq("phone", args.phone))
+                .filter((q) => q.eq(q.field("status"), "임시저장"))
+                .order("desc")
+                .first();
+        }
+
+        if (existingDraft) {
+            await ctx.db.patch(existingDraft._id, {
+                ...args,
+            });
+            return existingDraft._id;
+        } else {
+            return await ctx.db.insert("subscription_applications", {
+                ...args,
+                status: "임시저장",
+                createdAt: new Date().toISOString(),
+            });
+        }
     },
 });
 

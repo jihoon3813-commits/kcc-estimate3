@@ -62,7 +62,8 @@ export default defineSchema({
         }),
         status: v.string(), // pending
         createdAt: v.string(),
-    }),
+    }).index("by_quoteId", ["quoteId"])
+      .index("by_name_phone", ["name", "phone"]),
 
     subscription_applications: defineTable({
         quoteId: v.optional(v.id("quotes")),
@@ -85,5 +86,6 @@ export default defineSchema({
         }),
         status: v.string(), // pending
         createdAt: v.string(),
-    }),
+    }).index("by_quoteId", ["quoteId"])
+      .index("by_name_phone", ["name", "phone"]),
 });

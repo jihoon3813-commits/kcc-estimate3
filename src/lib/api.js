@@ -167,59 +167,42 @@ export const searchQuote = async (name, phone, statusType) => {
 /**
  * 렌탈 신청 데이터 및 파일 저장
  */
-export const submitRentalApplication = async (customerData, rentalForm) => {
+export const submitRentalApplication = async (customerData, rentalForm, draftId) => {
     try {
-        // Collect all files to upload
-        var uploadedFiles = [];
-        var fileUploads = [];
+        // Collect all files. Some might be already uploaded (storageId), some might be new (File object)
+        const uploadedFiles = [];
+        const filesToUpload = [];
 
-        // Correctly iterate over files object
         if (rentalForm.files) {
             for (const category in rentalForm.files) {
-                if (Object.prototype.hasOwnProperty.call(rentalForm.files, category)) {
-                    const files = rentalForm.files[category];
-                    if (Array.isArray(files) && files.length > 0) {
-                        for (const file of files) {
-                            fileUploads.push({ category, file });
+                const files = rentalForm.files[category];
+                if (Array.isArray(files)) {
+                    for (const f of files) {
+                        if (f.storageId) {
+                            uploadedFiles.push({ category, name: f.name, storageId: f.storageId });
+                        } else if (f instanceof File) {
+                            filesToUpload.push({ category, file: f });
+                        } else if (f.name && !f.storageId) {
+                            // This case shouldn't really happen if we auto-upload, but for safety
+                            filesToUpload.push({ category, file: f });
                         }
                     }
                 }
             }
         }
 
-        console.log(`Starting upload for ${fileUploads.length} files...`);
+        // Upload any remaining files (though they should be uploaded already by auto-save)
+        if (filesToUpload.length > 0) {
+            console.log(`Uploading ${filesToUpload.length} remaining files...`);
+            await Promise.all(filesToUpload.map(async ({ category, file }) => {
+                const storageId = await uploadSingleFile(file);
+                uploadedFiles.push({ category, name: file.name, storageId });
+            }));
+        }
 
-        // Upload files in parallel
-        await Promise.all(fileUploads.map(async ({ category, file }) => {
-            try {
-                // 1. Get upload URL
-                const postUrl = await convex.mutation(api.rentals.generateUploadUrl);
-
-                // 2. Upload file
-                const result = await fetch(postUrl, {
-                    method: "POST",
-                    headers: { "Content-Type": file.type },
-                    body: file,
-                });
-
-                if (!result.ok) throw new Error(`Upload failed for ${file.name}`);
-
-                const { storageId } = await result.json();
-                uploadedFiles.push({
-                    category: category,
-                    name: file.name,
-                    storageId: storageId
-                });
-                console.log(`Uploaded ${file.name} (ID: ${storageId})`);
-            } catch (err) {
-                console.error(`Failed to upload ${file.name}:`, err);
-                throw err;
-            }
-        }));
-
-        // Submit Application Data
         const params = {
-            quoteId: customerData._id ? customerData._id : undefined,
+            ...(draftId ? { id: draftId } : {}),
+            quoteId: customerData._id || undefined,
             name: customerData.name || "",
             phone: customerData.phone || "",
             address: customerData.address || "",
@@ -228,20 +211,66 @@ export const submitRentalApplication = async (customerData, rentalForm) => {
             selectedAmount: rentalForm.selectedAmount,
             ownershipType: rentalForm.ownershipType,
             files: uploadedFiles,
-            agreements: {
-                agree1: rentalForm.agreements.agree1,
-                agree2: rentalForm.agreements.agree2,
-                agree3: rentalForm.agreements.agree3
-            },
+            agreements: rentalForm.agreements
         };
 
-        console.log("Submitting rental application...", params);
+        console.log("Submitting final rental application...", params);
         const id = await convex.mutation(api.rentals.submitApplication, params);
-        console.log("Application submitted successfully, ID:", id);
         return { success: true, id };
-
     } catch (error) {
         console.error("Rental Application Error:", error);
+        return { success: false, message: error.message };
+    }
+};
+
+export const uploadSingleFile = async (file) => {
+    if (!(file instanceof File)) {
+        console.warn("Attempted to upload something that is not a File object:", file);
+        return null;
+    }
+    const postUrl = await convex.mutation(api.rentals.generateUploadUrl);
+    const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+    });
+    if (!result.ok) throw new Error(`Upload failed for ${file.name}`);
+    const { storageId } = await result.json();
+    return storageId;
+};
+
+export const getRentalDraft = async (params) => {
+    try {
+        const draft = await convex.query(api.rentals.getDraft, {
+            quoteId: params.quoteId,
+            name: params.name,
+            phone: params.phone
+        });
+        return { success: true, data: draft };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+export const saveRentalDraft = async (customerData, rentalForm) => {
+    try {
+        const params = {
+            quoteId: customerData._id || undefined,
+            name: customerData.name || "",
+            phone: customerData.phone || "",
+            address: customerData.address || "",
+            birthDate: rentalForm.birthDate || "",
+            gender: rentalForm.gender || "",
+            selectedAmount: rentalForm.selectedAmount || 0,
+            ownershipType: rentalForm.ownershipType || "own_own",
+            files: (rentalForm.files ? Object.entries(rentalForm.files).flatMap(([cat, files]) => 
+                files.filter(f => f.storageId).map(f => ({ category: cat, name: f.name, storageId: f.storageId }))
+            ) : []),
+            agreements: rentalForm.agreements || { agree1: false, agree2: false, agree3: false }
+        };
+        const id = await convex.mutation(api.rentals.saveDraft, params);
+        return { success: true, id };
+    } catch (error) {
         return { success: false, message: error.message };
     }
 };
@@ -282,38 +311,36 @@ export const updateSubscriptionStatus = async (id, status) => {
     }
 };
 
-export const submitSubscriptionApplication = async (customerData, form) => {
+export const submitSubscriptionApplication = async (customerData, form, draftId) => {
     try {
-        var uploadedFiles = [];
-        var fileUploads = [];
+        const uploadedFiles = [];
+        const filesToUpload = [];
 
         if (form.files) {
             for (const category in form.files) {
-                if (Object.prototype.hasOwnProperty.call(form.files, category)) {
-                    const files = form.files[category];
-                    if (Array.isArray(files) && files.length > 0) {
-                        for (const file of files) {
-                            fileUploads.push({ category, file });
+                const files = form.files[category];
+                if (Array.isArray(files)) {
+                    for (const f of files) {
+                        if (f.storageId) {
+                            uploadedFiles.push({ category, name: f.name, storageId: f.storageId });
+                        } else if (f instanceof File) {
+                            filesToUpload.push({ category, file: f });
                         }
                     }
                 }
             }
         }
 
-        await Promise.all(fileUploads.map(async ({ category, file }) => {
-            const postUrl = await convex.mutation(api.rentals.generateUploadUrl);
-            const result = await fetch(postUrl, {
-                method: "POST",
-                headers: { "Content-Type": file.type },
-                body: file,
-            });
-            if (!result.ok) throw new Error(`Upload failed for ${file.name}`);
-            const { storageId } = await result.json();
-            uploadedFiles.push({ category, name: file.name, storageId });
-        }));
+        if (filesToUpload.length > 0) {
+            await Promise.all(filesToUpload.map(async ({ category, file }) => {
+                const storageId = await uploadSingleFile(file);
+                uploadedFiles.push({ category, name: file.name, storageId });
+            }));
+        }
 
         const params = {
-            quoteId: customerData._id ? customerData._id : undefined,
+            ...(draftId ? { id: draftId } : {}),
+            quoteId: customerData._id || undefined,
             name: customerData.name || "",
             phone: customerData.phone || "",
             address: customerData.address || "",
@@ -329,6 +356,42 @@ export const submitSubscriptionApplication = async (customerData, form) => {
         return { success: true, id };
     } catch (error) {
         console.error("Subscription Application Error:", error);
+        return { success: false, message: error.message };
+    }
+};
+
+export const getSubscriptionDraft = async (params) => {
+    try {
+        const draft = await convex.query(api.subscriptions.getDraft, {
+            quoteId: params.quoteId,
+            name: params.name,
+            phone: params.phone
+        });
+        return { success: true, data: draft };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+};
+
+export const saveSubscriptionDraft = async (customerData, form) => {
+    try {
+        const params = {
+            quoteId: customerData._id || undefined,
+            name: customerData.name || "",
+            phone: customerData.phone || "",
+            address: customerData.address || "",
+            birthDate: form.birthDate || "",
+            gender: form.gender || "",
+            selectedAmount: form.selectedAmount || 0,
+            ownershipType: form.ownershipType || "own_own",
+            files: (form.files ? Object.entries(form.files).flatMap(([cat, files]) => 
+                files.filter(f => f.storageId).map(f => ({ category: cat, name: f.name, storageId: f.storageId }))
+            ) : []),
+            agreements: form.agreements || { agree1: false, agree2: false, agree3: false }
+        };
+        const id = await convex.mutation(api.subscriptions.saveDraft, params);
+        return { success: true, id };
+    } catch (error) {
         return { success: false, message: error.message };
     }
 };
