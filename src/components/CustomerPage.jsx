@@ -20,6 +20,47 @@ const CustomerPage = () => {
     const [statusType, setStatusType] = useState('가견적'); // Default to final quote
     const [showContactMenu, setShowContactMenu] = useState(false);
 
+    // === MODAL & ALERT STATE ===
+    const [toast, setToast] = useState({ show: false, message: '' });
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmText: '확인',
+        cancelText: '취소',
+        onConfirm: () => { },
+        showCancel: true,
+        type: 'confirm' // 'confirm' or 'alert'
+    });
+
+    const showAlert = (message, title = '알림') => {
+        setConfirmModal({
+            isOpen: true,
+            title,
+            message,
+            confirmText: '확인',
+            showCancel: false,
+            type: 'alert',
+            onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false }))
+        });
+    };
+
+    const showConfirm = (message, onConfirm, title = '확인') => {
+        setConfirmModal({
+            isOpen: true,
+            title,
+            message,
+            confirmText: '확인',
+            cancelText: '취소',
+            showCancel: true,
+            type: 'confirm',
+            onConfirm: () => {
+                onConfirm();
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
+    };
+
     // === CASH / BALANCE STATE ===
     const [downPayment, setDownPayment] = useState(0);
     const [balance, setBalance] = useState(0);
@@ -1111,7 +1152,12 @@ const CustomerPage = () => {
                             <div className="flex items-center gap-3">
                                 <button onClick={() => {
                                     if (rentalStep > 1) setRentalStep(prev => prev - 1);
-                                    else if (window.confirm(`${applicationType === 'subscription' ? '구독' : '렌탈'} 신청을 중단하시겠습니까?`)) setIsRentalMode(false);
+                                    else {
+                                        showConfirm(
+                                            `${applicationType === 'subscription' ? '구독' : '렌탈'} 신청을 중단하시겠습니까?`,
+                                            () => setIsRentalMode(false)
+                                        );
+                                    }
                                 }} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                                     <ChevronRight size={24} className="rotate-180 text-[#001a3d]" />
                                 </button>
@@ -1620,20 +1666,26 @@ const CustomerPage = () => {
                                             setRentalStep(prev => prev + 1);
                                         } else {
                                             // Handle final submission for RENTAL (Subscription is handled inside STEP 4 UI)
-                                            if (window.confirm('렌탈 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.')) {
-                                                setIsSubmitting(true);
-                                                const res = await submitRentalApplication(data, rentalForm, draftId);
-                                                setIsSubmitting(false);
+                                            showConfirm(
+                                                '렌탈 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.',
+                                                async () => {
+                                                    setIsSubmitting(true);
+                                                    const res = await submitRentalApplication(data, rentalForm, draftId);
+                                                    setIsSubmitting(false);
 
-                                                if (res.success) {
-                                                    alert(`렌탈 신청이 정상적으로 완료되었습니다.\n신청 가능 여부를 확인한 후 담당자를 통해 연락드리겠습니다.\n감사합니다.(1~2일 소요)`);
-                                                    setIsRentalMode(false);
-                                                    setApplicationType(null);
-                                                    setRentalStep(1);
-                                                } else {
-                                                    alert("신청 중 오류가 발생했습니다: " + res.message);
+                                                    if (res.success) {
+                                                        showAlert(
+                                                            `렌탈 신청이 정상적으로 완료되었습니다.\n신청 가능 여부를 확인한 후 담당자를 통해 연락드리겠습니다.\n감사합니다.(1~2일 소요)`,
+                                                            '신청 완료'
+                                                        );
+                                                        setIsRentalMode(false);
+                                                        setApplicationType(null);
+                                                        setRentalStep(1);
+                                                    } else {
+                                                        showAlert("신청 중 오류가 발생했습니다: " + res.message, "오류");
+                                                    }
                                                 }
-                                            }
+                                            );
                                         }
                                     }}
                                     className="w-full bg-[#001a3d] text-white py-4 rounded-2xl text-lg font-black shadow-xl hover:bg-blue-900 active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
@@ -1656,6 +1708,41 @@ const CustomerPage = () => {
                     </div>
                 )
             }
+            {/* Custom Confirm/Alert Modal */}
+            {confirmModal.isOpen && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="absolute inset-0 bg-[#001a3d]/80 backdrop-blur-sm" onClick={() => {
+                        if (confirmModal.type === 'alert') setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                    }}></div>
+                    <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+                        <div className="p-8 text-center space-y-4">
+                            <div className="w-16 h-16 bg-[#f0f4f9] text-[#001a3d] rounded-2xl flex items-center justify-center mx-auto mb-2">
+                                {confirmModal.type === 'alert' ? <ShieldCheck size={32} /> : <Calculator size={32} />}
+                            </div>
+                            <h3 className="text-xl font-black text-[#001a3d] leading-tight">{confirmModal.title}</h3>
+                            <p className="text-gray-500 font-bold text-sm leading-relaxed whitespace-pre-wrap break-keep">
+                                {confirmModal.message}
+                            </p>
+                        </div>
+                        <div className="flex border-t border-gray-100 h-16">
+                            {confirmModal.showCancel && (
+                                <button
+                                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                                    className="flex-1 text-gray-400 font-black text-sm hover:bg-gray-50 transition-colors border-r border-gray-100"
+                                >
+                                    {confirmModal.cancelText}
+                                </button>
+                            )}
+                            <button
+                                onClick={confirmModal.onConfirm}
+                                className={`flex-1 font-black text-sm transition-colors ${confirmModal.type === 'alert' ? 'text-[#001a3d] hover:bg-gray-50' : 'text-blue-600 hover:bg-blue-50'}`}
+                            >
+                                {confirmModal.confirmText}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
