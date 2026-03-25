@@ -1271,7 +1271,7 @@ const AdminPage = () => {
                                 <thead className="bg-[#2c3e50] text-white">
                                     <tr>
                                         {[
-                                            "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "최종할인가", "선납금", "잔금", "구분", "개월", "월 구독료", "서류목록"
+                                            "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "소유", "할인가", "선납금", "잔금", "구분", "개월", "구독료", "서류"
                                         ].map((th, i) => (
                                             <th key={i} className="px-2 py-3.5 font-black whitespace-nowrap text-[11px] uppercase tracking-tighter first:pl-6 last:pr-6 text-center">{th}</th>
                                         ))}
@@ -1391,7 +1391,7 @@ const AdminPage = () => {
                                     <thead className="bg-[#1a3a3a] text-white">
                                         <tr>
                                             {[
-                                                "순번", "상태", "신청일", "고객명", "전화번호", "생년월일", "성별", "소유형태", "최종할인가", "선납금", "잔금", "구분", "개월", "월 구독료", "서류목록"
+                                                "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "소유", "할인가", "선납금", "잔금", "구분", "개월", "구독료", "서류"
                                             ].map((th, i) => (
                                                 <th key={i} className="px-2 py-3.5 font-black whitespace-nowrap text-[11px] uppercase tracking-tighter first:pl-6 last:pr-6 text-center">{th}</th>
                                             ))}
