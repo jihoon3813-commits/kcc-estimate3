@@ -152,14 +152,22 @@ export const listApplications = query({
             let finalBenefit = (app as any).finalBenefit || 0;
             let balance = (app as any).balance || 0;
             let monthlyAmount = (app as any).monthlyAmount || 0;
+            let downPayment = (app as any).downPayment || 0;
 
-            if (app.quoteId && (!finalBenefit || !balance || !monthlyAmount)) {
-                const quote = await ctx.db.get(app.quoteId);
+            if (!finalBenefit || !balance || !monthlyAmount) {
+                let quote = null;
+                if (app.quoteId) {
+                    quote = await ctx.db.get(app.quoteId);
+                } else {
+                    quote = await ctx.db.query("quotes")
+                        .withIndex("by_name_phone", (q) => q.eq("name", app.name).eq("phone", app.phone))
+                        .first();
+                }
+
                 if (quote) {
                     const fb = (quote as any).finalBenefit || 0;
                     if (!finalBenefit) finalBenefit = fb;
-                    const dp = (app as any).downPayment || 0;
-                    if (!balance) balance = finalBenefit - dp;
+                    if (!balance) balance = finalBenefit - downPayment;
                     
                     if (!monthlyAmount && app.selectedAmount) {
                         const term = app.selectedAmount;

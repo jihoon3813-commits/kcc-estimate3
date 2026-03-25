@@ -156,14 +156,22 @@ export const listApplications = query({
             let finalBenefit = (app as any).finalBenefit || 0;
             let balance = (app as any).balance || 0;
             let monthlyAmount = (app as any).monthlyAmount || 0;
+            let downPayment = (app as any).downPayment || 0;
 
-            if (app.quoteId && (!finalBenefit || !balance)) {
-                const quote = await ctx.db.get(app.quoteId);
+            if (!finalBenefit || !balance) {
+                let quote = null;
+                if (app.quoteId) {
+                    quote = await ctx.db.get(app.quoteId);
+                } else {
+                    quote = await ctx.db.query("quotes")
+                        .withIndex("by_name_phone", (q) => q.eq("name", app.name).eq("phone", app.phone))
+                        .first();
+                }
+
                 if (quote) {
                     finalBenefit = (quote as any).finalBenefit || 0;
-                    // For old rental apps, downPayment was implicitly 0 or calculated based on selectedAmount
-                    const dp = (app as any).downPayment || 0;
-                    balance = finalBenefit - dp;
+                    // If balance was missing, recalculate it properly from possibly new finalBenefit
+                    balance = finalBenefit - downPayment;
                     if (!monthlyAmount && app.selectedAmount) {
                          monthlyAmount = (app.selectedAmount === 11 ? 111000 : app.selectedAmount === 22 ? 222000 : app.selectedAmount === 33 ? 333000 : 0);
                     }

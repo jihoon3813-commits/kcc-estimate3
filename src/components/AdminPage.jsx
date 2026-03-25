@@ -1324,7 +1324,7 @@ const AdminPage = () => {
                                                     {item.monthlyAmount ? Number(item.monthlyAmount).toLocaleString() + '원' : (item.selectedAmount >= 11 && item.selectedAmount <= 33 ? Number(item.selectedAmount * 10000).toLocaleString() + '원' : '0원')}
                                                 </td>
                                                 <td className="px-2 py-3.5 text-left">
-                                                    <div className="flex flex-wrap gap-1 min-w-[80px]">
+                                                    <div className="flex flex-wrap gap-1 min-w-[100px]">
                                                         {item.files.map((file, fIdx) => (
                                                             <a
                                                                 key={fIdx}
@@ -1332,9 +1332,12 @@ const AdminPage = () => {
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 title={file.name}
-                                                                className="flex items-center justify-center w-8 h-8 bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all border border-gray-100"
+                                                                className="flex items-center gap-1 px-1.5 py-1 bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-all border border-gray-100"
                                                             >
-                                                                <FileText size={16} />
+                                                                <FileText size={12} />
+                                                                <span className="text-[9px] font-black whitespace-nowrap">
+                                                                    {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : '기타')))}
+                                                                </span>
                                                             </a>
                                                         ))}
                                                     </div>
@@ -1444,7 +1447,7 @@ const AdminPage = () => {
                                                         {item.monthlyAmount ? Number(item.monthlyAmount).toLocaleString() + '원' : '-'}
                                                     </td>
                                                     <td className="px-2 py-3.5 text-left">
-                                                        <div className="flex flex-wrap gap-1.5 min-w-[120px]">
+                                                        <div className="flex flex-wrap gap-1 min-w-[100px]">
                                                             {item.files.map((file, fIdx) => (
                                                                 <a
                                                                     key={fIdx}
@@ -1452,9 +1455,12 @@ const AdminPage = () => {
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
                                                                     title={file.name}
-                                                                    className="flex items-center justify-center w-8 h-8 bg-gray-50 hover:bg-teal-50 text-gray-400 hover:text-teal-600 rounded-lg transition-all border border-gray-100"
+                                                                    className="flex items-center gap-1 px-1.5 py-1 bg-gray-50 hover:bg-teal-50 text-gray-400 hover:text-teal-600 rounded-lg transition-all border border-gray-100"
                                                                 >
-                                                                    <FileText size={16} />
+                                                                    <FileText size={12} />
+                                                                    <span className="text-[9px] font-black whitespace-nowrap">
+                                                                        {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : (file.category === 'bank_book' ? '통장' : '기타'))))}
+                                                                    </span>
                                                                 </a>
                                                             ))}
                                                         </div>
