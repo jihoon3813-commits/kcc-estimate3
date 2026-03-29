@@ -769,7 +769,7 @@ const CustomerPage = () => {
                                                     <p className="text-[11px] font-black uppercase tracking-widest text-[#c5a059]">그린리모델링PLUS 혜택</p>
                                                 </div>
                                                 <p className="text-[14px] md:text-[15px] font-bold leading-relaxed break-keep">
-                                                    {data.name}님께서는 그린리모델링PLUS를 통해 총 <span className="inline-block bg-[#c5a059] text-[#001a3d] text-lg md:text-2xl font-black px-3 py-1 rounded-xl shadow-lg mx-1">{formatKrw(plusCalc?.supportedInterest)}</span>의 <br className="hidden md:block" />
+                                                    {data.name}님께서는 {plusMonths}개월 동안 총 <span className="inline-block bg-[#c5a059] text-[#001a3d] text-lg md:text-2xl font-black px-3 py-1 rounded-xl shadow-lg mx-1">{formatKrw(plusCalc?.supportedInterest)}</span>의 <br className="hidden md:block" />
                                                     이자 지원을 받으실 수 있습니다.
                                                 </p>
                                             </div>
