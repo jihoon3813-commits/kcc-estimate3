@@ -766,11 +766,11 @@ const CustomerPage = () => {
                                             <div className="bg-[#001a3d] p-4 md:p-5 rounded-2xl shadow-xl border border-white/10 text-white group-hover:scale-[1.01] transition-transform">
                                                 <div className="flex items-center gap-3 mb-2">
                                                     <Sparkles size={16} className="text-[#c5a059]" />
-                                                    <p className="text-[11px] font-black uppercase tracking-widest text-[#c5a059]">이자 전액 지원 혜택</p>
+                                                    <p className="text-[11px] font-black uppercase tracking-widest text-[#c5a059]">그린리모델링PLUS 혜택</p>
                                                 </div>
                                                 <p className="text-[14px] md:text-[15px] font-bold leading-relaxed break-keep">
-                                                    준정부 지원을 통해 총 <span className="inline-block bg-[#c5a059] text-[#001a3d] text-lg md:text-2xl font-black px-3 py-1 rounded-xl shadow-lg mx-1">{formatKrw(plusCalc?.supportedInterest)}</span>을 지원받고, <br className="hidden md:block" />
-                                                    월 <span className="font-outfit font-black text-white text-lg">{formatKrw(plusCalc?.monthlyPayment)}</span>에 이용 가능합니다.
+                                                    {data.name}님께서는 그린리모델링PLUS를 통해 총 <span className="inline-block bg-[#c5a059] text-[#001a3d] text-lg md:text-2xl font-black px-3 py-1 rounded-xl shadow-lg mx-1">{formatKrw(plusCalc?.supportedInterest)}</span>의 <br className="hidden md:block" />
+                                                    이자 지원을 받으실 수 있습니다.
                                                 </p>
                                             </div>
                                         </div>
