@@ -35,6 +35,9 @@ export const saveQuote = async (data, file) => {
         }
     }
 
+    const calc = data.calculations || {};
+    const subs = data.subs || calc.subs || {};
+
     const params = {
         date: new Date().toISOString().split('T')[0],
         branch: data.branch || "",
@@ -44,16 +47,17 @@ export const saveQuote = async (data, file) => {
         address: data.address || "",
         kccPrice: Number(data.totalSum) || 0,
         finalQuote: Number(data.finalQuote) || 0,
-        finalBenefit: Number(data.finalBenefit) || 0,
-        discountRate: Number(data.discountRate) || 0,
+        finalBenefit: Number(data.finalBenefit || (calc.lumpSum?.discountedPrice)) || 0,
+        discountRate: Number(data.discountRate || (calc.lumpSum?.discountRate)) || 0,
         extraDiscount: Number(data.extraDiscount) || 0,
-        marginAmt: Number(data.marginAmount) || 0,
-        marginRate: Number(data.marginRate) || 0,
-        sub24: Number(data.subs[24]) || 0,
-        sub36: Number(data.subs[36]) || 0,
-        sub48: Number(data.subs[48]) || 0,
-        sub60: Number(data.subs[60]) || 0,
+        marginAmt: Number(data.marginAmount || (calc.lumpSum?.margin)) || 0,
+        marginRate: Number(data.marginRate || (calc.lumpSum?.marginRate)) || 0,
+        sub24: Number(subs[24]) || 0,
+        sub36: Number(subs[36]) || 0,
+        sub48: Number(subs[48]) || 0,
+        sub60: Number(subs[60]) || 0,
         items: JSON.stringify(data.items || []),
+        calculations: JSON.stringify(data.calculations || calc || {}),
         storageId: storageId || undefined,
         pdfUrl: "",
         remark: ""
@@ -79,7 +83,8 @@ export const getQuote = async (id) => {
             data: {
                 ...quote,
                 subs: { 24: quote.sub24, 36: quote.sub36, 48: quote.sub48, 60: quote.sub60 },
-                items: JSON.parse(quote.items || "[]")
+                items: JSON.parse(quote.items || "[]"),
+                calculations: JSON.parse(quote.calculations || "{}")
             }
         };
     } catch (error) {
@@ -90,7 +95,15 @@ export const getQuote = async (id) => {
 export const getAdminQuoteList = async () => {
     try {
         const data = await convex.query(api.quotes.listQuotes);
-        return { success: true, data: data.map(q => ({ ...q, id: q._id })) };
+        return { 
+            success: true, 
+            data: data.map(q => ({ 
+                ...q, 
+                id: q._id,
+                items: JSON.parse(q.items || "[]"),
+                calculations: JSON.parse(q.calculations || "{}")
+            })) 
+        };
     } catch (error) {
         return { success: false, message: error.message };
     }

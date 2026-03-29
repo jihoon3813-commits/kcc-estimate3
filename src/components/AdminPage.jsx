@@ -35,11 +35,19 @@ const AdminPage = () => {
     const [isDragging, setIsDragging] = useState(false);
 
     // Form State
-    const [branch, setBranch] = useState('인천지점');
     const [statusType, setStatusType] = useState('가견적');
-    const [priceMultiplier, setPriceMultiplier] = useState(1.35);
-    const [supplyCost, setSupplyCost] = useState(0);
-    const [discountRate, setDiscountRate] = useState(8);
+    const [materialMultiplier, setMaterialMultiplier] = useState(1.3);
+    const [materialSupplyCost, setMaterialSupplyCost] = useState(0);
+    const [etcSupplyCost, setEtcSupplyCost] = useState(0);
+    const [annualRate, setAnnualRate] = useState(6.0); // Image 2: 연이율
+    const [interestSupport, setInterestSupport] = useState(4.0); // Image 2: 이율지원
+    const [prepaymentRates, setPrepaymentRates] = useState({ // Image 2: 선취이율
+        60: 20.46,
+        48: 16.92,
+        36: 14.12,
+        24: 13.16
+    });
+    const [lumpSumDiscountRate, setLumpSumDiscountRate] = useState(6.0); // Image 4: 할인율
     const [extraDiscount, setExtraDiscount] = useState(0);
     const [customerPhone, setCustomerPhone] = useState('');
 
@@ -50,7 +58,26 @@ const AdminPage = () => {
         finalBenefit: 0,
         marginAmount: 0,
         marginRate: 0,
-        subs: { 24: 0, 36: 0, 48: 0, 60: 0 }
+        subs: { 24: 0, 36: 0, 48: 0, 60: 0 },
+        greenPlus: [60, 48, 36, 24].map(m => ({
+            month: m,
+            quotePrice: 0,
+            customerPayRate: 0,
+            actualInterest: 0,
+            totalPayment: 0,
+            monthlyPayment: 0,
+            upfrontFee: 0,
+            settlementAmount: 0,
+            margin: 0,
+            marginRate: 0
+        })),
+        lumpSum: {
+            quotePrice: 0,
+            discountRate: 6.0,
+            discountedPrice: 0,
+            margin: 0,
+            marginRate: 0
+        }
     });
 
     // Confirmation State
@@ -61,7 +88,6 @@ const AdminPage = () => {
     const [quoteList, setQuoteList] = useState([]);
     const [filteredList, setFilteredList] = useState([]);
     const [filterDate, setFilterDate] = useState('all');
-    const [filterBranch, setFilterBranch] = useState('all');
     const [filterType, setFilterType] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedQuote, setSelectedQuote] = useState(null);
@@ -79,31 +105,95 @@ const AdminPage = () => {
     const modalCalculations = useMemo(() => {
         if (!selectedQuote) return null;
 
-        const discountRate = isEditingModal ? modalEditData.discountRate : selectedQuote.discountRate;
-        const extraDiscount = isEditingModal ? modalEditData.extraDiscount : selectedQuote.extraDiscount;
-
-        const finalQuote = Number(selectedQuote.finalQuote);
-        const kccPrice = Number(selectedQuote.kccPrice);
-
-        const discountAmt = Math.floor((finalQuote * (discountRate / 100)) / 100) * 100;
-        const finalBenefit = finalQuote - discountAmt - extraDiscount;
-        const marginAmount = finalBenefit - kccPrice;
-        const marginRate = finalBenefit > 0 ? (marginAmount / finalBenefit) * 100 : 0;
-
-        const annualRate = 0.1;
-        const subs = {};
-        for (const m of [24, 36, 48, 60]) {
-            const r = annualRate / 12;
-            const pmt = (finalBenefit * r) / (1 - Math.pow(1 + r, -m));
-            subs[m] = Math.floor(pmt / 10) * 10;
+        let savedCalc = null;
+        if (selectedQuote.calculations) {
+            try {
+                // Handle both string and object cases safely
+                savedCalc = typeof selectedQuote.calculations === 'string' 
+                    ? JSON.parse(selectedQuote.calculations) 
+                    : selectedQuote.calculations;
+            } catch (e) {
+                console.error("Failed to parse saved calculations:", e);
+            }
         }
 
+        // Falls back or editing overrides
+        const items = selectedQuote.items || [];
+        // Priority: Top-level > Saved Calculation > Default 1.3
+        const matMultiplier = selectedQuote.materialMultiplier || savedCalc?.materialMultiplier || 1.3;
+        
+        // Attempt to extract supplies from items if top-level fields are missing
+        const matFromItems = items.filter(it => !it.isEtc).reduce((s, it) => s + (Number(it.price || 0) / matMultiplier), 0);
+        const etcFromItems = items.filter(it => it.isEtc).reduce((s, it) => s + Number(it.price || 0), 0);
+
+        const matSupply = Number(selectedQuote.materialSupplyCost || (selectedQuote.totalMaterial) || matFromItems || 0);
+        const etcSupply = Number(selectedQuote.etcSupplyCost || (selectedQuote.totalEtc) || etcFromItems || 0);
+        const kccPrice = matSupply + etcSupply;
+
+        const currentLumpSumRate = isEditingModal ? (modalEditData.discountRate || 0) : (selectedQuote.lumpSumDiscountRate || 6.0);
+        const currentAnnualRate = Number(selectedQuote.annualRate || 6.0);
+        const currentInterestSupport = Number(selectedQuote.interestSupport || 4.0);
+        const currentPrepaymentRates = selectedQuote.prepaymentRates || { 60: 20.46, 48: 16.92, 36: 14.12, 24: 13.16 };
+
+        // Re-calculate analysis based on new rules
+        const markupBase = matSupply * matMultiplier;
+        const finalQuote = Math.floor((markupBase + etcSupply) / 100) * 100;
+
+        const lumpSumPrice = Math.floor(finalQuote * (1 - currentLumpSumRate / 100) / 100) * 100;
+        const lumpSumMargin = Number(lumpSumPrice - kccPrice) || 0;
+        const lumpSumMarginRate = Number(markupBase > 0 ? (lumpSumMargin / markupBase) * 100 : 0) || 0;
+
+        const greenPlus = [60, 48, 36, 24].map(month => {
+            const years = month / 12;
+            const customerPayRate = Number(currentAnnualRate - currentInterestSupport) || 0;
+            const origInterest = Math.floor((finalQuote * (currentAnnualRate / 100) * years) / 100) * 100;
+            const supportedInterest = Math.floor((finalQuote * (currentInterestSupport / 100) * years) / 100) * 100;
+            const actualInterest = Math.floor((finalQuote * (customerPayRate / 100) * years) / 100) * 100;
+            const monthlyActualInterest = Math.floor(actualInterest / month) || 0;
+            const totalPayment = Math.floor((finalQuote + actualInterest) / 100) * 100;
+            const monthlyPayment = Math.floor((totalPayment / month) / 100) * 100;
+            const rate = Number(currentPrepaymentRates[month] || 0);
+            const upfrontFee = Math.floor((totalPayment * (rate / 100)) / 10) * 10;
+            const settlementAmount = Math.floor((totalPayment - upfrontFee) / 10) * 10;
+            const margin = Math.floor((settlementAmount - kccPrice) / 10) * 10;
+            const marginRate = markupBase > 0 ? (margin / markupBase) * 100 : 0;
+
+            return {
+                month,
+                quotePrice: finalQuote,
+                customerPayRate,
+                origInterest,
+                supportedInterest,
+                actualInterest,
+                monthlyActualInterest,
+                totalPayment,
+                monthlyPayment,
+                upfrontFee,
+                settlementAmount,
+                margin,
+                marginRate
+            };
+        });
+
+        const subs = {};
+        greenPlus.forEach(g => {
+            subs[g.month] = g.monthlyPayment;
+        });
+
         return {
-            finalBenefit,
-            discountRate,
-            extraDiscount,
-            marginAmount,
-            marginRate,
+            finalQuote,
+            finalBenefit: lumpSumPrice,
+            marginAmount: lumpSumMargin,
+            marginRate: lumpSumMarginRate,
+            materialMultiplier: matMultiplier,
+            lumpSum: {
+                quotePrice: finalQuote,
+                discountRate: currentLumpSumRate,
+                discountedPrice: lumpSumPrice,
+                margin: lumpSumMargin,
+                marginRate: lumpSumMarginRate
+            },
+            greenPlus,
             subs
         };
     }, [selectedQuote, isEditingModal, modalEditData]);
@@ -158,13 +248,14 @@ const AdminPage = () => {
                 setCustomerPhone(formatPhoneNumber(data.customerPhone));
             }
 
-            // Auto-fill supply cost for profitability analysis
-            if (data.totalSum) {
-                setSupplyCost(data.totalSum);
+            // Auto-fill costs from Excel
+            if (data.totalMaterial) {
+                setMaterialSupplyCost(data.totalMaterial);
             }
-            // Auto-calculate supply cost logic could go here if we had a formula
-            // For now, default multiplier logic
-            setPriceMultiplier(1.35);
+            if (data.totalEtc) {
+                setEtcSupplyCost(data.totalEtc);
+            }
+            setMaterialMultiplier(1.3);
 
             setStatus("분석 완료!");
         } catch (error) {
@@ -179,64 +270,77 @@ const AdminPage = () => {
     useEffect(() => {
         if (!estimateData) return;
 
-        // 1. KCC Quote (Sum from Excel)
         const kccQuote = estimateData.totalSum;
+        
+        // 1. Base Quote Logic (Markup Material)
+        // 최종견적가 = 공급가(자재비) * 자재비(배수) + 공급가(기타비)
+        const markupBase = materialSupplyCost * materialMultiplier;
+        let finalQuote = Math.floor((markupBase + etcSupplyCost) / 100) * 100;
 
-        // 2. Final Quote (Markup) = SupplyCost * Multiplier OR KCCQuote * Multiplier?
-        // Usually Markup is on Supply Cost. But if Supply Cost is user input, we use that.
-        // If Supply Cost is 0, maybe we default to KCCQuote as base? 
-        // Let's assume Final Quote = (Supply Cost > 0 ? Supply Cost : KCCQuote * 0.7) * Multiplier
-        // Actually adhering to the UI logic: Supply Cost is input. 
-        // If Supply Cost is 0, let's treat it as KCC Quote for now or user must input.
-        // Let's rely on the user inputting Supply Cost.
+        // 2. Lump Sum Analysis (Image 4)
+        const lumpSumPrice = Math.floor(finalQuote * (1 - lumpSumDiscountRate / 100) / 100) * 100;
+        const totalSupplyCost = materialSupplyCost + etcSupplyCost;
+        const lumpSumMargin = lumpSumPrice - totalSupplyCost;
+        // User: 마진율은 최종견적가를 기준으로 하지말고 공급가(자재비)x자재비(배수) 금액을 기준으로 해
+        const lumpSumMarginRate = markupBase > 0 ? (lumpSumMargin / markupBase) * 100 : 0;
 
-        // However, to be helpful, if Supply Cost is 0, let's init it once (maybe in handleExcelUpload)
-        // For calculation state:
+        // 3. Green Remodeling PLUS (Image 3)
+        const greenPlus = [60, 48, 36, 24].map(month => {
+            const years = month / 12;
+            const customerPayRate = annualRate - interestSupport;
+            const origInterest = finalQuote * (annualRate / 100) * years;
+            const supportedInterest = finalQuote * (interestSupport / 100) * years;
+            const actualInterest = Math.floor((origInterest - supportedInterest) / 100) * 100;
+            const monthlyActualInterest = Math.floor(actualInterest / month);
+            const totalPayment = Math.floor((finalQuote + actualInterest) / 100) * 100;
+            const monthlyPayment = Math.floor((totalPayment / month) / 100) * 100;
+            
+            const rate = prepaymentRates[month] || 0;
+            const upfrontFee = Math.floor((totalPayment * (rate / 100)) / 10) * 10;
+            const settlementAmount = Math.floor((totalPayment - upfrontFee) / 10) * 10;
+            const margin = Math.floor((settlementAmount - totalSupplyCost) / 10) * 10;
+            const marginRate = markupBase > 0 ? (margin / markupBase) * 100 : 0;
 
-        const baseCost = supplyCost > 0 ? supplyCost : 0;
+            return {
+                month,
+                quotePrice: finalQuote,
+                customerPayRate,
+                years,
+                origInterest,
+                supportedInterest,
+                actualInterest,
+                monthlyActualInterest,
+                totalPayment,
+                monthlyPayment,
+                upfrontFee,
+                settlementAmount,
+                margin,
+                marginRate
+            };
+        });
 
-        // Final Quote Logic (Updated 2026-01-19)
-        // Final Quote = (Material Cost * Multiplier) + Other Cost
-        // We assume 'baseCost' (Supply Cost Input) contains both Material + Other.
-        // We subtract Other Cost (fixed from Excel) to isolate Material Cost.
-        const otherCost = estimateData.totalEtc || 0;
-        const materialCost = Math.max(0, baseCost - otherCost);
-
-        let rawFinalQuote = (materialCost * priceMultiplier) + otherCost;
-        let finalQuote = Math.floor(rawFinalQuote / 100) * 100;
-
-        // 3. Final Benefit (Customer Pay) = Final Quote * (1 - Discount/100) - Extra
-        // Discount Amount rounded down to 100 won
-        const discountAmt = Math.floor((finalQuote * (discountRate / 100)) / 100) * 100;
-        const finalBenefit = finalQuote - discountAmt - extraDiscount;
-
-        // 4. Margin = Final Benefit - Supply Cost (VAT inc) - Etc?
-        // Simple Margin = Final Benefit - Supply Cost
-        const marginAmount = finalBenefit - baseCost;
-        const marginRate = baseCost > 0 ? (marginAmount / finalBenefit) * 100 : 0; // Margin on Revenue usually
-
-        // 5. Subs (Updated to PMT formula: 10% annual interest)
-        // PMT = (PV * r) / (1 - (1 + r)^-n)
-        const annualRate = 0.1; // 10%
+        // 4. Existing Subs
         const subs = {};
-
-        for (const m of [24, 36, 48, 60]) {
-            const r = annualRate / 12; // Monthly rate
-            // PMT Calculation
-            const pmt = (finalBenefit * r) / (1 - Math.pow(1 + r, -m));
-            subs[m] = Math.floor(pmt / 10) * 10; // Floor to 10 won
-        }
+        greenPlus.forEach(g => {
+            subs[g.month] = g.monthlyPayment;
+        });
 
         setCalculations({
             kccQuote,
-            finalQuote,
-            finalBenefit,
-            marginAmount,
-            marginRate,
-            subs
+            finalQuote, // Base Quote
+            lumpSum: {
+                quotePrice: finalQuote,
+                discountRate: lumpSumDiscountRate,
+                discountedPrice: lumpSumPrice,
+                margin: lumpSumMargin,
+                marginRate: lumpSumMarginRate
+            },
+            greenPlus,
+            subs,
+            materialMultiplier
         });
 
-    }, [estimateData, supplyCost, priceMultiplier, discountRate, extraDiscount]);
+    }, [estimateData, materialSupplyCost, etcSupplyCost, materialMultiplier, annualRate, interestSupport, prepaymentRates, lumpSumDiscountRate]);
 
 
     const handleRegisterClick = () => {
@@ -244,8 +348,8 @@ const AdminPage = () => {
             alert("엑셀 견적서가 필요합니다.");
             return;
         }
-        if (supplyCost <= 0) {
-            if (!window.confirm("공급가(매입가)가 0원입니다. 진행하시겠습니까? (마진 계산이 정확하지 않을 수 있습니다.)")) return;
+        if (materialSupplyCost <= 0) {
+            if (!window.confirm("공급가(자재비)가 0원입니다. 진행하시겠습니까? (마진 계산이 정확하지 않을 수 있습니다.)")) return;
         }
         setIsConfirmMode(true);
     };
@@ -261,30 +365,36 @@ const AdminPage = () => {
                 // We just need to apply the margin multiplier
                 return {
                     ...item,
-                    price: Math.floor(item.price * priceMultiplier)
+                    price: Math.floor(Number(item.price || 0) * materialMultiplier)
                 };
             });
 
             const payload = {
-                date: new Date(),
-                branch,
+                date: new Date().toISOString().split('T')[0],
                 statusType,
-                customerName: estimateData.customerName,
-                customerPhone: customerPhone, // Use the manually corrected phone
-                address: estimateData.address,
+                customerName: estimateData.customerName || "미정",
+                customerPhone: customerPhone || "",
+                address: estimateData.address || "",
 
-                // Money
-                totalSum: estimateData.totalSum, // KCC Orig
-                finalQuote: calculations.finalQuote,
-                finalBenefit: calculations.finalBenefit,
+                // Money Flattening for saveQuote API compat
+                totalSum: Number(estimateData.totalSum || 0),
+                finalQuote: Number(calculations.finalQuote || 0),
+                finalBenefit: Number(calculations.finalBenefit || calculations.lumpSum?.discountedPrice || 0),
+                marginAmount: Number(calculations.marginAmount || calculations.lumpSum?.margin || 0),
+                marginRate: Number(calculations.marginRate || calculations.lumpSum?.marginRate || 0),
+                subs: calculations.subs || {},
+                discountRate: Number(lumpSumDiscountRate || 0),
+                
+                annualRate: Number(annualRate || 6.0),
+                interestSupport: Number(interestSupport || 4.0),
+                prepaymentRates: prepaymentRates || {},
+                lumpSumDiscountRate: Number(lumpSumDiscountRate || 0),
+                extraDiscount: Number(extraDiscount || 0),
 
-                discountRate,
-                extraDiscount,
-
-                marginAmount: calculations.marginAmount,
-                marginRate: calculations.marginRate,
-
-                subs: calculations.subs,
+                calculations: {
+                    ...calculations,
+                    materialMultiplier: Number(materialMultiplier || 1.3)
+                },
 
                 items: processedItems
             };
@@ -296,7 +406,8 @@ const AdminPage = () => {
                 setFile(null);
                 setPdfFile(null);
                 setEstimateData(null);
-                setSupplyCost(0);
+                setMaterialSupplyCost(0);
+                setEtcSupplyCost(0);
                 setCustomerPhone('');
             } else {
                 alert("저장 실패: " + data.message);
@@ -369,9 +480,6 @@ const AdminPage = () => {
             });
         }
 
-        if (filterBranch !== 'all') {
-            tempQuotes = tempQuotes.filter(item => item.branch === filterBranch);
-        }
 
         if (filterType !== 'all') {
             tempQuotes = tempQuotes.filter(item => item.type === filterType);
@@ -465,7 +573,7 @@ const AdminPage = () => {
             return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
         });
         setFilteredSubscriptionList(tempSubs);
-    }, [quoteList, rentalList, subscriptionList, searchTerm, filterBranch, filterType, filterDate, sortOrder, fetchList]);
+    }, [quoteList, rentalList, subscriptionList, searchTerm, filterType, filterDate, sortOrder, fetchList]);
 
     const handleRentalNameClick = async (rental) => {
         setLoading(true);
@@ -789,7 +897,7 @@ const AdminPage = () => {
                 <div className="flex items-center gap-4 mb-4 md:mb-0 shrink-0">
                     <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/5b115594e9a66.png" alt="KCC Logo" className="h-8 object-contain" />
                     <div className="whitespace-nowrap">
-                        <h1 className="text-xl font-black text-[#001a3d]">KCC 관리자 시스템</h1>
+                        <h1 className="text-xl font-black text-[#001a3d]">KCC 관리자 시스템(그린)</h1>
                         <p className="text-xs text-gray-400 font-bold">견적 생성 및 이력 관리</p>
                     </div>
                 </div>
@@ -837,18 +945,6 @@ const AdminPage = () => {
                                     className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all ${statusType === t ? 'bg-[#c5a059] text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
                                 >
                                     {t}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="flex bg-white p-1.5 rounded-[1.2rem] shadow-sm border border-gray-100">
-                            {['인천지점', '수원지점'].map(b => (
-                                <button
-                                    key={b}
-                                    type="button"
-                                    onClick={() => setBranch(b)}
-                                    className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all ${branch === b ? 'bg-kcc-navy text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
-                                >
-                                    {b}
                                 </button>
                             ))}
                         </div>
@@ -952,107 +1048,290 @@ const AdminPage = () => {
                                 </div>
                             </section>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                                {/* 2. Margin Config */}
-                                <section className="lg:col-span-5 glass-card p-8 rounded-[2rem] space-y-6 border border-gray-100/50">
-                                    <h4 className="font-bold text-gray-700 flex items-center gap-2 text-lg">
-                                        <Calculator size={20} className="text-kcc-blue" />
-                                        마진 및 가격 설정
-                                    </h4>
-
-                                    <div className="space-y-5">
-                                        <div className="bg-gray-50 p-4 rounded-2xl space-y-3">
-                                            <p className="text-sm font-black text-gray-600">최종 견적가 책정</p>
-                                            <div>
-                                                <label className="text-[11px] font-bold text-gray-400 uppercase block mb-1">자재비 배율 (기본 1.35)</label>
-                                                <div className="flex items-center gap-2">
-                                                    <input type="number" step="0.01" value={priceMultiplier} onChange={(e) => setPriceMultiplier(Number(e.target.value))} className="input-field rounded-xl flex-1" />
-                                                    <span className="text-sm font-bold text-gray-500">배</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="text-[11px] font-bold text-gray-400 uppercase block mb-1">공급가 (VAT포함)</label>
-                                                <input type="text" value={supplyCost.toLocaleString()} onChange={(e) => setSupplyCost(Number(e.target.value.replace(/[^0-9]/g, '')))} className="input-field rounded-xl" />
-                                            </div>
-                                            <div>
-                                                <label className="text-[11px] font-bold text-gray-400 uppercase block mb-1">할인율 (%)</label>
-                                                <input type="number" step="0.1" value={discountRate} onChange={(e) => setDiscountRate(Number(e.target.value))} className="input-field rounded-xl" />
-                                            </div>
-                                            <div className="col-span-2">
-                                                <label className="text-[11px] font-bold text-gray-400 uppercase block mb-1">추가 할인금액</label>
-                                                <input type="text" value={extraDiscount.toLocaleString()} onChange={(e) => setExtraDiscount(Number(e.target.value.replace(/[^0-9]/g, '')))} className="input-field rounded-xl" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
-
-                                {/* 3. Result */}
-                                <section className="lg:col-span-7 bg-white p-8 rounded-[2rem] shadow-xl border-l-[6px] border-[#001a3d] space-y-6">
-                                    <h4 className="font-bold text-gray-700 text-lg">수익성 분석 결과</h4>
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div className="p-5 rounded-2xl bg-gray-50 border border-gray-100">
-                                            <p className="text-xs text-gray-400 font-bold mb-1">최종 견적가</p>
-                                            <p className="text-2xl font-black text-gray-800 tracking-tight">{formatKrw(calculations.finalQuote)}</p>
-                                        </div>
-                                        <div className="p-5 rounded-2xl bg-[#ebf5ff] border border-blue-100 relative overflow-hidden">
-                                            <p className="text-xs text-blue-500 font-bold mb-1">최종 혜택가 (고객 부담금)</p>
-                                            <p className="text-3xl font-black text-[#001a3d] tracking-tight">{formatKrw(calculations.finalBenefit)}</p>
-                                        </div>
-                                        <div className="p-5 rounded-2xl border border-gray-100">
-                                            <p className="text-xs text-gray-400 font-bold mb-1">마진 금액</p>
-                                            <p className={`text-xl font-black ${calculations.marginAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{formatKrw(calculations.marginAmount)}</p>
-                                        </div>
-                                        <div className="p-5 rounded-2xl border border-gray-100">
-                                            <p className="text-xs text-gray-400 font-bold mb-1">마진율</p>
-                                            <p className={`text-xl font-black ${calculations.marginRate >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{calculations.marginRate.toFixed(1)}%</p>
-                                        </div>
-                                    </div>
-                                    <div className="border-t border-gray-100 pt-6">
-                                        <p className="text-xs text-gray-400 font-bold mb-3 uppercase">월 예상 구독료</p>
-                                        <div className="grid grid-cols-4 gap-3">
-                                            {[24, 36, 48, 60].map(m => (
-                                                <div key={m} className={`p-3 rounded-xl text-center ${m === 60 ? 'bg-[#001a3d] text-white' : 'bg-gray-50 text-gray-600'}`}>
-                                                    <p className="text-[10px] opacity-70 mb-0.5">{m}개월</p>
-                                                    <p className="text-sm font-black">{formatKrw(calculations.subs[m]).replace('원', '')}</p>
-                                                </div>
+                    {/* 2. New Horizontal Layout Sections */}
+                    <div className="space-y-10">
+                        {/* SECTION 1: 입력 항목 (Image 2) */}
+                        <section className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+                            <h4 className="font-black text-[#001a3d] text-lg mb-6 flex items-center gap-2">
+                                <Calculator size={20} className="text-kcc-blue" />
+                                1. 입력 항목
+                            </h4>
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="border border-gray-100 p-3 text-sm font-black text-gray-700 bg-gray-100/50 w-40">구분</th>
+                                            {[60, 48, 36, 24].map(m => (
+                                                <th key={m} className="border border-gray-100 p-3 text-sm font-black text-[#001a3d]">{m}개월</th>
                                             ))}
-                                        </div>
-                                    </div>
-                                    <div className="border-t border-gray-100 pt-6">
-                                        <p className="text-xs text-gray-400 font-bold mb-3 uppercase">60개월 렌탈 고정형 패키지 (선납금)</p>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {[11, 22, 33].map(val => (
-                                                <div key={val} className="p-3 rounded-xl text-center bg-gray-50 border border-gray-100 transition-all hover:bg-white hover:shadow-md hover:border-[#c5a059]/30">
-                                                    <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정</p>
-                                                    <p className="text-sm font-black text-[#001a3d]">
-                                                        {calculatePackage(calculations.finalBenefit, val * 10000, val * 500000 / 1.1)}
-                                                    </p>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500 bg-gray-50/30">공급가(자재비)</td>
+                                            <td colSpan="4" className="border border-gray-100 p-2">
+                                                <input
+                                                    type="text"
+                                                    value={materialSupplyCost.toLocaleString()}
+                                                    onChange={(e) => setMaterialSupplyCost(Number(e.target.value.replace(/[^0-9]/g, '')))}
+                                                    className="w-full text-center py-2 bg-blue-50/50 border-none rounded-lg font-black text-[#001a3d] outline-none focus:ring-2 focus:ring-kcc-blue/30"
+                                                />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500 bg-gray-50/30">공급가(기타비)</td>
+                                            <td colSpan="4" className="border border-gray-100 p-2">
+                                                <input
+                                                    type="text"
+                                                    value={etcSupplyCost.toLocaleString()}
+                                                    onChange={(e) => setEtcSupplyCost(Number(e.target.value.replace(/[^0-9]/g, '')))}
+                                                    className="w-full text-center py-2 bg-gray-50/50 border-none rounded-lg font-black text-gray-600 outline-none focus:ring-2 focus:ring-gray-200"
+                                                />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500 bg-gray-50/30">자재비(배수)</td>
+                                            <td colSpan="4" className="border border-gray-100 p-2">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={materialMultiplier}
+                                                        onChange={(e) => setMaterialMultiplier(Number(e.target.value))}
+                                                        className="w-32 text-center py-2 bg-blue-50/50 border-none rounded-lg font-black text-[#001a3d] outline-none focus:ring-2 focus:ring-kcc-blue/30"
+                                                    />
+                                                    <span className="text-xs font-bold text-gray-400">배</span>
                                                 </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500 bg-gray-50/30">연이율 / 이율지원</td>
+                                            <td colSpan="4" className="border border-gray-100 p-2">
+                                                <div className="flex items-center justify-center gap-8">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-bold text-gray-400">정상 연이율:</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.1"
+                                                            value={annualRate}
+                                                            onChange={(e) => setAnnualRate(Number(e.target.value))}
+                                                            className="w-20 text-center py-2 bg-gray-50 border-none rounded-lg font-black text-gray-700"
+                                                        />
+                                                        <span className="text-xs font-bold text-gray-400">%</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-bold text-gray-400">정부/회사 지원:</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.1"
+                                                            value={interestSupport}
+                                                            onChange={(e) => setInterestSupport(Number(e.target.value))}
+                                                            className="w-20 text-center py-2 bg-green-50 border-none rounded-lg font-black text-green-600"
+                                                        />
+                                                        <span className="text-xs font-bold text-gray-400">%</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500 bg-gray-50/30">선취이율 (%)</td>
+                                            {[60, 48, 36, 24].map(m => (
+                                                <td key={m} className="border border-gray-100 p-2 text-center">
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={prepaymentRates[m]}
+                                                        onChange={(e) => setPrepaymentRates(prev => ({ ...prev, [m]: Number(e.target.value) }))}
+                                                        className="w-full text-center py-2 bg-orange-50/50 border-none rounded-lg font-black text-orange-600 outline-none"
+                                                    />
+                                                </td>
                                             ))}
-                                        </div>
-                                    </div>
-                                </section>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
+                        </section>
 
-                            <div className="pt-4 relative z-50">
-                                {isConfirmMode ? (
-                                    <div className="glass-card p-6 rounded-3xl border-2 border-[#c5a059] animate-in fade-in zoom-in-95">
-                                        <div className="text-center space-y-4">
-                                            <h3 className="text-xl font-black text-[#001a3d]">정말 등록하시겠습니까?</h3>
-                                            <div className="flex gap-3 justify-center">
-                                                <button onClick={() => setIsConfirmMode(false)} className="px-8 py-4 rounded-2xl bg-gray-100 text-gray-500 font-bold hover:bg-gray-200">취소</button>
-                                                <button onClick={handleFinalSubmit} className="px-8 py-4 rounded-2xl bg-[#001a3d] text-white font-black hover:bg-blue-900 flex items-center gap-2"><CheckCircle size={20} /> 확인 및 등록</button>
-                                            </div>
+                        {/* SECTION 2: 그린리모델링 PLUS (Image 3) */}
+                        <section className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+                            <h4 className="font-black text-[#001a3d] text-lg mb-6 flex items-center gap-2">
+                                <ShieldCheck size={20} className="text-green-600" />
+                                2. 그린리모델링 PLUS 수익분석
+                            </h4>
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="border border-gray-100 p-3 text-sm font-black text-gray-700 bg-gray-100/50 w-40">구분</th>
+                                            {[60, 48, 36, 24].map(m => (
+                                                <th key={m} className="border border-gray-100 p-3 text-sm font-black text-[#001a3d]">{m}개월</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr className="bg-yellow-50/30 font-bold">
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">최종 견적가</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center text-[#001a3d] font-black">{g.quotePrice.toLocaleString()}</td>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">고객 실이율 (년)</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center text-red-500 font-bold">{g.customerPayRate.toFixed(2)}%</td>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">원래 부담해야 할 이자</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center text-gray-400 font-medium">{Math.floor(g.origInterest || 0).toLocaleString()}</td>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">지원하는 이자</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center text-gray-400 font-medium">{Math.floor(g.supportedInterest || 0).toLocaleString()}</td>
+                                            ))}
+                                        </tr>
+                                        <tr className="bg-yellow-400/20">
+                                            <td className="border border-gray-100 p-3 text-xs font-black text-gray-700">실부담 이자</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center font-black text-gray-800">{Math.floor(g.actualInterest || 0).toLocaleString()}</td>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500 bg-gray-50/30">실부담 월이자</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center text-gray-600 font-bold">{Math.floor(g.monthlyActualInterest || 0).toLocaleString()}</td>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">납부 총액</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center text-gray-600 font-medium">{g.totalPayment.toLocaleString()}</td>
+                                            ))}
+                                        </tr>
+                                        <tr className="bg-blue-50/50">
+                                            <td className="border border-gray-100 p-3 text-xs font-black text-blue-700 italic">월 할부금 (예상)</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-4 text-center text-blue-700 font-black text-lg">{g.monthlyPayment.toLocaleString()}원</td>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">선취수수료 (회수)</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center text-orange-600">{Math.floor(g.upfrontFee || 0).toLocaleString()}</td>
+                                            ))}
+                                        </tr>
+                                        <tr className="bg-gray-50">
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-700">정산 금액 (입금액)</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center font-black text-gray-800">{Math.floor(g.settlementAmount || 0).toLocaleString()}</td>
+                                            ))}
+                                        </tr>
+                                        <tr className="bg-green-50/50">
+                                            <td className="border border-gray-100 p-3 text-xs font-black text-green-700">마진 / 마진율</td>
+                                            {calculations.greenPlus.map((g, i) => (
+                                                <td key={i} className="border border-gray-100 p-3 text-center">
+                                                    <span className="font-black text-green-700">{Math.floor(g.margin || 0).toLocaleString()}원</span>
+                                                    <span className="text-[10px] text-green-600 ml-2">({g.marginRate.toFixed(2)}%)</span>
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        {/* SECTION 3: BSON 렌탈 패키지 (Image 1 Bottom) */}
+                        <section className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+                            <h4 className="font-black text-[#001a3d] text-lg mb-6 flex items-center gap-2">
+                                <RefreshCw size={20} className="text-orange-500" />
+                                3. BSON 렌탈 패키지 (60개월 고정)
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[11, 22, 33].map(val => (
+                                    <div key={val} className="p-6 rounded-2xl bg-gray-50 border border-gray-100 transition-all hover:bg-white hover:shadow-lg hover:border-orange-200 text-center">
+                                        <p className="text-xs text-gray-500 font-bold mb-2 tracking-tighter">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정형 패키지</p>
+                                        <p className="text-2xl font-black text-[#001a3d]">
+                                            {calculatePackage(calculations.lumpSum.discountedPrice, val * 10000, val * 500000 / 1.1)}
+                                        </p>
+                                        <p className="text-[10px] text-gray-400 mt-1 uppercase font-black">Advance Payment</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* SECTION 4: 일시불 (Image 4) */}
+                        <section className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+                            <div className="flex justify-between items-center mb-6">
+                                <h4 className="font-black text-[#001a3d] text-lg flex items-center gap-2">
+                                    <Save size={20} className="text-kcc-gold" />
+                                    4. 일시불 결제
+                                </h4>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm font-bold text-gray-400">일시불 할인율 설정 :</span>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="number"
+                                            step="0.1"
+                                            value={lumpSumDiscountRate}
+                                            onChange={(e) => setLumpSumDiscountRate(Number(e.target.value))}
+                                            className="w-20 text-center py-1 bg-gray-100 rounded-lg font-black text-[#001a3d]"
+                                        />
+                                        <span className="text-xs font-bold text-gray-400">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="border border-gray-100 p-3 text-sm font-black text-gray-700 bg-gray-100/50">구분</th>
+                                            <th className="border border-gray-100 p-3 text-sm font-black text-[#001a3d]">일시불 (현금/카드)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500 bg-gray-50/30">견적가</td>
+                                            <td className="border border-gray-100 p-3 text-center text-gray-400 font-medium">{calculations.lumpSum.quotePrice.toLocaleString()}</td>
+                                        </tr>
+                                        <tr className="bg-yellow-50/50">
+                                            <td className="border border-gray-100 p-3 text-xs font-black text-gray-700">일시불 할인가</td>
+                                            <td className="border border-gray-100 p-4 text-center text-[#c5a059] font-black text-xl">{calculations.lumpSum.discountedPrice.toLocaleString()}원</td>
+                                        </tr>
+                                        <tr className="bg-green-50/30">
+                                            <td className="border border-gray-100 p-3 text-xs font-black text-green-700">마진 / 마진율</td>
+                                            <td className="border border-gray-100 p-3 text-center">
+                                                <span className="font-black text-green-700">{calculations.lumpSum.margin.toLocaleString()}원</span>
+                                                <span className="text-xs text-green-600 ml-4 font-black">({calculations.lumpSum.marginRate.toFixed(2)}%)</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div className="pt-10 border-t border-gray-100">
+                        <div className="pt-4 relative z-50">
+                            {isConfirmMode ? (
+                                <div className="glass-card p-6 rounded-3xl border-2 border-[#c5a059] animate-in fade-in zoom-in-95">
+                                    <div className="text-center space-y-4">
+                                        <h3 className="text-xl font-black text-[#001a3d]">정말 등록하시겠습니까?</h3>
+                                        <div className="flex gap-3 justify-center">
+                                            <button onClick={() => setIsConfirmMode(false)} className="px-8 py-4 rounded-2xl bg-gray-100 text-gray-500 font-bold hover:bg-gray-200">취소</button>
+                                            <button onClick={handleFinalSubmit} className="px-8 py-4 rounded-2xl bg-[#001a3d] text-white font-black hover:bg-blue-900 flex items-center gap-2"><CheckCircle size={20} /> 확인 및 등록</button>
                                         </div>
                                     </div>
-                                ) : (
-                                    <button onClick={handleRegisterClick} className="w-full bg-[#001a3d] text-white h-20 rounded-3xl text-xl font-black shadow-2xl hover:bg-blue-900 flex items-center justify-center gap-2"><Save size={28} /><span>견적 데이터 등록하기</span></button>
-                                )}
-                            </div>
+                                </div>
+                            ) : (
+                                <button onClick={handleRegisterClick} className="w-full bg-[#001a3d] text-white h-20 rounded-3xl text-xl font-black shadow-2xl hover:bg-blue-900 flex items-center justify-center gap-2"><Save size={28} /><span>견적 데이터 등록하기</span></button>
+                            )}
                         </div>
-                    )}
+                    </div>
+                </div>
+            )}
                 </div>
             )}
 
@@ -1090,16 +1369,6 @@ const AdminPage = () => {
                             <option value="year">1년</option>
                         </select>
 
-                        {/* Branch Filter */}
-                        <select
-                            className="bg-gray-50 px-4 py-3 rounded-xl text-sm font-bold text-gray-600 border-none cursor-pointer focus:ring-2 focus:ring-[#c5a059]/50"
-                            value={filterBranch}
-                            onChange={(e) => setFilterBranch(e.target.value)}
-                        >
-                            <option value="all">전체 지점</option>
-                            <option value="인천지점">인천지점</option>
-                            <option value="수원지점">수원지점</option>
-                        </select>
 
                         {/* Type Filter */}
                         <select
@@ -1147,7 +1416,7 @@ const AdminPage = () => {
                                 <thead className="bg-gray-50">
                                     <tr>
                                         {[
-                                            "순번", "접수일", "지점", "구분", "고객명", "전화번호", "주소",
+                                            "순번", "접수일", "구분", "고객명", "전화번호", "주소",
                                             "공급가", "최종견적", "최종혜택", "할인율", "추가할인",
                                             "마진금액", "마진율",
                                             "24개월", "36개월", "48개월", "60개월",
@@ -1167,7 +1436,6 @@ const AdminPage = () => {
                                             <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
                                                 <td className="px-4 py-4 text-center font-bold text-gray-400">{filteredList.length - idx}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap font-medium text-gray-600">{item.date}</td>
-                                                <td className="px-4 py-4 text-center whitespace-nowrap font-bold text-[#001a3d]">{item.branch}</td>
                                                 <td className="px-4 py-4 text-center whitespace-nowrap">
                                                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${item.type === '최종견적' ? 'bg-[#001a3d] text-[#c5a059]' :
                                                         item.type === '책임견적' ? 'bg-[#c5a059] text-white' :
@@ -1503,7 +1771,7 @@ const AdminPage = () => {
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-[#001a3d] text-white">
                                 <div>
                                     <h3 className="text-xl font-black">{selectedQuote.name} 고객님 견적 상세</h3>
-                                    <p className="text-xs text-white/60 font-bold mt-1">{selectedQuote.date} | {selectedQuote.branch}</p>
+                                    <p className="text-xs text-white/60 font-bold mt-1">{selectedQuote.date}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {!isEditingModal ? (
@@ -1606,7 +1874,7 @@ const AdminPage = () => {
                                         </div>
                                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                                             <p className="text-[10px] text-gray-400 font-bold mb-1">마진율</p>
-                                            <p className={`text-sm font-black ${Number(modalCalculations.marginRate) >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{Number(modalCalculations.marginRate).toFixed(1)}%</p>
+                                            <p className={`text-sm font-black ${Number(modalCalculations.marginRate || 0) >= 0 ? 'text-gray-800' : 'text-red-500'}`}>{Number(modalCalculations.marginRate || 0).toFixed(1)}%</p>
                                         </div>
 
                                         {/* Row 2 (Key Figures) */}
@@ -1616,60 +1884,135 @@ const AdminPage = () => {
                                         </div>
                                         <div className="bg-[#001a3d] p-4 rounded-xl shadow-lg md:col-span-1">
                                             <p className="text-xs text-white/60 font-bold mb-1">고객 실 부담금</p>
-                                            <p className="text-xl font-black text-white">{formatKrw(modalCalculations.finalBenefit)}</p>
+                                            <p className="text-xl font-black text-white">{formatKrw(Number(modalCalculations.finalBenefit || 0))}</p>
                                         </div>
                                         <div className="bg-green-50 p-4 rounded-xl border border-green-100 md:col-span-1">
                                             <p className="text-xs text-green-600 font-bold mb-1">마진 금액</p>
-                                            <p className="text-xl font-black text-green-700">{formatKrw(modalCalculations.marginAmount)}</p>
+                                            <p className="text-xl font-black text-green-700">{formatKrw(Number(modalCalculations.marginAmount || 0))}</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 md:col-span-1">
+                                            <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">자재비(배수)</p>
+                                            <p className="text-xl font-black text-gray-800">{Number(modalCalculations.materialMultiplier || 1.3).toFixed(2)}</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* 3. Subscription & Others */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                    {/* Subscriptions */}
-                                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                                        <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
-                                            렌탈기간별 월 납입금
+                                {/* 3. Detailed Analysis Tables (Section 2, 3, 4 Equivalents) */}
+                                <div className="space-y-8">
+                                    {/* SECTION 2 (Green Remodeling PLUS) Style Table */}
+                                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                                        <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70 italic">
+                                            <Calculator size={16} className="text-blue-500" /> 그린리모델링 PLUS 분석 (이자 지원 포함)
                                         </h4>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {[24, 36, 48, 60].map(m => (
-                                                <div key={m} className={`p-2 rounded-lg flex justify-between items-center ${m === 60 ? 'bg-[#c5a059]/10 border border-[#c5a059]/30' : 'bg-white border border-gray-100'}`}>
-                                                    <span className="text-[10px] font-bold text-gray-500">{m}개월</span>
-                                                    <span className={`text-sm font-black ${m === 60 ? 'text-[#c5a059]' : 'text-gray-700'}`}>
-                                                        {modalCalculations.subs[m] ? Number(modalCalculations.subs[m]).toLocaleString() : 0}
-                                                    </span>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full border-collapse">
+                                                <thead>
+                                                    <tr className="bg-gray-50/50">
+                                                        <th className="border border-gray-100 p-3 text-xs font-bold text-gray-500 w-32">구분</th>
+                                                        {[60, 48, 36, 24].map(m => (
+                                                            <th key={m} className={`border border-gray-100 p-3 text-sm font-black text-[#001a3d] ${m === 60 ? 'bg-[#c5a059]/5' : ''}`}>{m}개월</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">최종 견적가</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center font-black text-gray-800">{(Number(g.quotePrice || 0)).toLocaleString()}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">고객 실이율 (년)</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center text-red-500 font-bold">{g.customerPayRate.toFixed(2)}%</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">원래 부담해야 할 이자</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center text-gray-400 font-medium">{Math.floor(g.origInterest || 0).toLocaleString()}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">지원하는 이자</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center text-gray-400 font-medium">{Math.floor(g.supportedInterest || 0).toLocaleString()}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr className="bg-yellow-400/20">
+                                                        <td className="border border-gray-100 p-3 text-xs font-black text-gray-700">실부담 이자</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center font-black text-gray-800">{Math.floor(g.actualInterest || 0).toLocaleString()}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500 bg-gray-50/30">실부담 월이자</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center text-gray-600 font-bold">{Math.floor(g.monthlyActualInterest || 0).toLocaleString()}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">납부 총액</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center text-gray-600 font-medium">{g.totalPayment.toLocaleString()}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr className="bg-blue-50/50">
+                                                        <td className="border border-gray-100 p-3 text-xs font-black text-blue-700 italic">월 할부금 (예상)</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-4 text-center text-blue-700 font-black text-lg">{g.monthlyPayment.toLocaleString()}원</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="border border-gray-100 p-3 text-xs font-bold text-gray-500">선취수수료 (회수)</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center text-orange-600">{Math.floor(g.upfrontFee || 0).toLocaleString()}</td>
+                                                        ))}
+                                                    </tr>
+                                                    <tr className="bg-gray-50">
+                                                        <td className="border border-gray-100 p-3 text-xs font-bold text-gray-700">정산 금액 (입금액)</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center font-black text-gray-800">{Math.floor(g.settlementAmount || 0).toLocaleString()}</td>
+                                                        ))}
+                                                    </tr>
+                                            <tr className="bg-green-50/50">
+                                                        <td className="border border-gray-100 p-3 text-xs font-black text-green-700">마진 / 마진율</td>
+                                                        {modalCalculations?.greenPlus?.map((g, i) => (
+                                                            <td key={i} className="border border-gray-100 p-3 text-center">
+                                                                <span className="font-black text-green-700">{Math.floor(g.margin || 0).toLocaleString()}원</span>
+                                                                <span className="text-[10px] text-green-600 ml-2">({(Number(g.marginRate || 0)).toFixed(2)}%)</span>
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* SECTION 3 (BSON Package) Equiv */}
+                                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                                        <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
+                                            BSON 렌탈 패키지 (11/22/33 고정형 선납금)
+                                        </h4>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            {[11, 22, 33].map(val => (
+                                                <div key={val} className="p-4 rounded-2xl bg-gray-50/50 border border-gray-100 flex flex-col items-center">
+                                                    <p className="text-[10px] text-gray-400 font-bold mb-1 italic uppercase tracking-wider">MONTHLY PAYMENT {val === 11 ? '11.1' : val === 22 ? '22.2' : '33.3'}만</p>
+                                                    <p className="text-xl font-black text-[#001a3d] border-b-2 border-[#c5a059]/30 pb-1 mb-2">
+                                                        {calculatePackage(Number(modalCalculations?.lumpSum?.discountedPrice || 0), val * 10000, val * 500000 / 1.1)}
+                                                    </p>
+                                                    <p className="text-[9px] text-gray-300 font-bold">PACKAGE EARLY ADOPTION BSON</p>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-
-                                    {/* Others */}
-                                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
-                                        <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
-                                            기타 정보
-                                        </h4>
-                                        <div className="bg-white p-3 rounded-xl border border-gray-100">
-                                            <p className="text-[10px] text-gray-400 font-bold mb-1">비고 (Remark)</p>
-                                            <p className="text-sm font-medium text-gray-600">{selectedQuote.remark || '-'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* 4. 60-Month Rental Fixed Package */}
-                                <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
-                                    <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide opacity-70">
-                                        60개월 렌탈 고정형 패키지 (선납금)
-                                    </h4>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {[11, 22, 33].map(val => (
-                                            <div key={val} className="p-3 rounded-xl text-center bg-white border border-gray-100">
-                                                <p className="text-[10px] text-gray-500 font-bold mb-1">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정</p>
-                                                <p className="text-sm font-black text-[#001a3d]">
-                                                    {calculatePackage(Number(modalCalculations.finalBenefit), val * 10000, val * 500000 / 1.1)}
-                                                </p>
-                                            </div>
-                                        ))}
+                                    
+                                    {/* Other */}
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                        <p className="text-[10px] text-gray-400 font-bold mb-1 uppercase tracking-widest opacity-50">비고 (Remark)</p>
+                                        <p className="text-sm font-bold text-gray-700 italic border-l-4 border-gray-200 pl-3 py-1 bg-gray-50/50 rounded-r-lg">
+                                            {selectedQuote.remark || '입력된 비고 사항이 없습니다.'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

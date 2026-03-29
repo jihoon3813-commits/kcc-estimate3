@@ -1,8 +1,55 @@
-import React, { useState } from 'react';
-import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload, Calculator, ArrowRightLeft, Wallet, Clock, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload, Calculator, ArrowRightLeft, Wallet, Clock, Sparkles, Crown, PartyPopper } from 'lucide-react';
 import { searchQuote, submitRentalApplication, submitSubscriptionApplication, getRentalDraft, saveRentalDraft, getSubscriptionDraft, saveSubscriptionDraft, uploadSingleFile } from '../lib/api';
 
 const CustomerPage = () => {
+    // === ANIMATION STYLES ===
+    const rotatingBorderStyle = (
+        <style>
+            {`
+            @keyframes rotate {
+                100% { transform: rotate(1turn); }
+            }
+            .pink-spin-border {
+                position: relative;
+                z-index: 0;
+                border-radius: 1rem;
+                overflow: hidden;
+                padding: 4px; /* Space for the border */
+                background: white;
+            }
+            .pink-spin-border::before {
+                content: '';
+                position: absolute;
+                z-index: -2;
+                left: -150%;
+                top: -150%;
+                width: 400%;
+                height: 400%;
+                background-image: conic-gradient(
+                    transparent, 
+                    rgba(255, 0, 128, 0.8), 
+                    rgba(255, 128, 191, 0.9), 
+                    rgba(255, 0, 128, 0.8), 
+                    transparent 60%
+                );
+                animation: rotate 1.5s linear infinite;
+            }
+            .pink-spin-border::after {
+                content: '';
+                position: absolute;
+                z-index: -1;
+                left: 4px;
+                top: 4px;
+                width: calc(100% - 8px);
+                height: calc(100% - 8px);
+                background: white;
+                border-radius: calc(1rem - 4px);
+            }
+            `}
+        </style>
+    );
+
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [data, setData] = useState(null);
     const [banners, setBanners] = useState([]);
@@ -77,20 +124,39 @@ const CustomerPage = () => {
         }
     }, [data?.finalBenefit]);
 
-    // Handle initial custom subs for full or balance
-    const handleConversion = (mode) => {
-        setConversionMode(mode);
-        const amount = mode === 'full' ? data.finalBenefit : balance;
-        
-        const annualRate = 0.1;
-        const subs = {};
-        for (const m of [24, 36, 48, 60]) {
-            const r = annualRate / 12;
-            const pmt = (amount * r) / (1 - Math.pow(1 + r, -m));
-            subs[m] = Math.floor(pmt / 10) * 10;
+    // === GREEN REMODELING PLUS STATE ===
+    const [plusConversionAmount, setPlusConversionAmount] = useState(0);
+    const [plusMonths, setPlusMonths] = useState(60);
+
+    React.useEffect(() => {
+        if (data?.finalQuote) {
+            setPlusConversionAmount(data.finalQuote);
         }
-        setCalculatedSubs(subs);
-    };
+    }, [data?.finalQuote]);
+
+    const plusCalc = React.useMemo(() => {
+        if (!plusConversionAmount) return null;
+        const years = plusMonths / 12;
+        const baseRate = 0.06;
+        const supportRate = 0.04;
+        const customerRate = 0.02;
+
+        const totalInterest = Math.floor(plusConversionAmount * baseRate * years);
+        const supportedInterest = Math.floor(plusConversionAmount * supportRate * years);
+        const customerInterest = Math.floor(plusConversionAmount * customerRate * years);
+        
+        const totalPayment = plusConversionAmount + customerInterest;
+        const monthlyPayment = Math.floor(totalPayment / plusMonths / 10) * 10;
+        
+        return {
+            totalInterest,
+            supportedInterest,
+            customerInterest,
+            totalPayment,
+            monthlyPayment,
+            downPayment: (data?.finalQuote || 0) - plusConversionAmount
+        };
+    }, [plusConversionAmount, plusMonths, data?.finalBenefit]);
 
     // === RENTAL APPLICATION STATE ===
     const [isRentalMode, setIsRentalMode] = useState(false);
@@ -298,7 +364,9 @@ const CustomerPage = () => {
     const calculatePackage = (basePrice, rentalMonthly, subtractAmount) => {
         const amount = typeof basePrice === 'string' ? Number(basePrice.replace(/,/g, '')) : Number(basePrice);
         const advancePayment = (amount || 0) - (subtractAmount || 0);
-        return advancePayment < 0 ? "해당없음" : formatKrw(advancePayment);
+        // Truncate below 10 won unit (floor to nearest 100)
+        const flooredAmount = Math.floor(advancePayment / 100) * 100;
+        return advancePayment < 0 ? "해당없음" : formatKrw(flooredAmount);
     };
 
     const handleFileUpload = async (type, e) => {
@@ -445,6 +513,7 @@ const CustomerPage = () => {
 
     return (
         <div className="bg-[#f7f9fc] min-h-screen pb-16 font-sans selection:bg-[#c5a059]/30 text-sm">
+            {rotatingBorderStyle}
             <header className="bg-white sticky top-0 z-50 border-b border-gray-100 shadow-sm">
                 <div className="max-w-4xl mx-auto px-5 py-3.5 flex justify-between items-center">
                     <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/5b115594e9a66.png" alt="KCC Logo" className="h-6 object-contain" />
@@ -463,49 +532,54 @@ const CustomerPage = () => {
                 </div>
             </header>
 
-            <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
-                <div className="text-center space-y-3 pt-4">
-                    <div className="inline-block bg-[#001a3d]/5 px-3 py-1 rounded-full">
-                        <span className="text-[#001a3d] text-[9px] font-black tracking-widest uppercase">OFFICIAL QUOTATION</span>
+            <div className="bg-[#001a3d] text-white py-12 px-4 md:px-8 -mx-4 md:-mx-6 mb-12 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#c5a059]/10 rounded-full blur-3xl -mr-48 -mt-48 opacity-50"></div>
+                <div className="max-w-4xl mx-auto relative z-10 space-y-10">
+                    <div className="text-center space-y-3">
+                        <div className="inline-block bg-white/10 px-4 py-1.5 rounded-full border border-white/20 backdrop-blur-sm">
+                            <span className="text-[#c5a059] text-[10px] font-black tracking-[0.3em] uppercase">공식 견적서</span>
+                        </div>
+                        <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight tracking-tight">
+                            <span className="text-[#c5a059]">감사합니다.</span> {data.name}님<br />
+                            <span className="text-white/40 text-2xl md:text-3xl">최고의 가치로 보답하겠습니다.</span>
+                        </h2>
                     </div>
-                    <h2 className="text-2xl md:text-4xl font-extrabold text-[#001a3d] leading-tight tracking-tight">
-                        <span className="text-luxury">감사합니다.</span> {data.name}님<br />
-                        <span className="text-gray-300">최고의 가치로 보답하겠습니다.</span>
-                    </h2>
-                </div>
 
-                <div className="luxury-card p-6 md:p-8 relative overflow-hidden bg-white shadow-xl shadow-gray-200/50">
-                    <div className="relative z-10 space-y-6">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-[9px] font-black text-[#c5a059] uppercase tracking-widest mb-1.5">Customer details</p>
-                                <h3 className="text-2xl font-black text-[#001a3d] leading-none">{data.name} 고객님</h3>
+                    <div className="bg-white/5 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 border border-white/10 shadow-2xl space-y-8">
+                        <div className="flex justify-between items-center pb-6 border-b border-white/10">
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-[#c5a059] uppercase tracking-[0.2em]">고객 상세 정보</p>
+                                <h3 className="text-2xl md:text-3xl font-black text-white">{data.name} 고객님</h3>
                             </div>
-                            <div className={`px-4 py-2 rounded-xl text-[10px] font-black shadow-sm ${data.type === '최종견적' ? 'bg-[#001a3d] text-[#c5a059] border border-[#c5a059]/30' :
-                                data.type === '책임견적' ? 'bg-[#c5a059] text-white shadow-md' :
-                                    'bg-gray-100 text-gray-400 border border-gray-200'
+                            <div className={`px-6 py-2.5 rounded-2xl text-[11px] font-black shadow-lg ${data.type === '최종견적' ? 'bg-[#c5a059] text-[#001a3d]' :
+                                data.type === '책임견적' ? 'bg-blue-600 text-white' :
+                                    'bg-white/10 text-white/40 border border-white/10'
                                 }`}>
                                 {data.type || '가견적'}
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-2xl border border-gray-100/50">
-                                <div className="w-9 h-9 bg-white shadow-sm rounded-xl flex items-center justify-center text-[#c5a059]"><MapPin size={18} /></div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex items-center gap-4 p-5 bg-white/5 rounded-2xl border border-white/5 transition-all hover:bg-white/10">
+                                <div className="w-12 h-12 bg-[#c5a059]/20 text-[#c5a059] rounded-2xl flex items-center justify-center shadow-lg"><MapPin size={22} /></div>
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight mb-0.5">Address</p>
-                                    <p className="text-xs font-extrabold text-[#2c3e50] break-keep">{data.address}</p>
+                                    <p className="text-[9px] text-white/30 font-black uppercase tracking-widest mb-1">설치 주소</p>
+                                    <p className="text-sm font-black text-white leading-relaxed break-keep">{data.address}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-2xl border border-gray-100/50">
-                                <div className="w-9 h-9 bg-white shadow-sm rounded-xl flex items-center justify-center text-[#c5a059]"><Phone size={18} /></div>
-                                <div>
-                                    <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight mb-0.5">Contact</p>
-                                    <p className="text-xs font-extrabold text-[#2c3e50] font-outfit">{formatPhoneNumber(data.phone || searchForm.phone)}</p>
+                            <div className="flex items-center gap-4 p-5 bg-white/5 rounded-2xl border border-white/5 transition-all hover:bg-white/10">
+                                <div className="w-12 h-12 bg-[#c5a059]/20 text-[#c5a059] rounded-2xl flex items-center justify-center shadow-lg"><Phone size={22} /></div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[9px] text-white/30 font-black uppercase tracking-widest mb-1">연락처</p>
+                                    <p className="text-sm font-black text-white font-outfit">{formatPhoneNumber(data.phone || searchForm.phone)}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-16">
 
                 {data.status === '책임견적' && (
                     <div className="bg-gradient-to-r from-[#001a3d] to-[#012a5e] p-6 md:p-8 rounded-[2rem] shadow-xl border-l-[6px] border-[#c5a059] text-white space-y-4 animate-in fade-in slide-in-from-top-4">
@@ -538,328 +612,404 @@ const CustomerPage = () => {
                     </div>
                 )}
 
-                <div className="space-y-6">
-                    <h3 className="text-lg font-black text-[#001a3d] flex items-center gap-2 px-1">
-                        <div className="w-8 h-8 bg-[#001a3d] text-[#c5a059] rounded-lg flex items-center justify-center shadow-md"><ChevronRight size={18} /></div>
-                        결제 방식별 상세 제안
-                    </h3>
-
-                    <div className="grid grid-cols-1 gap-6">
-                        {/* 1 & 2 그룹 영역 */}
-                        <div className="space-y-6 bg-white p-2 md:p-4 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                            {/* 1. 일시불 섹션 */}
-                            <div className="luxury-card overflow-hidden border-none shadow-xl">
-                                <div className="bg-[#1a1c23] px-5 py-3.5 flex justify-between items-center text-white">
-                                    <div className="flex items-center gap-2.5 text-sm font-black">
-                                        <div className="w-6 h-6 bg-white text-[#1a1c23] rounded-full flex items-center justify-center text-[10px] font-outfit">1</div>
-                                        일시불 (현금/카드)
-                                    </div>
-                                    <span className="bg-[#facc15] text-[#1a1c23] text-[8px] font-black px-2.5 py-1 rounded shadow-sm uppercase">Best</span>
-                                </div>
-                                <div className="p-4 md:p-10 space-y-6 bg-white">
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-gray-400 font-bold">정상 견적금액 (상세항목 합계)</span>
-                                        <span className="text-gray-400 font-bold text-base line-through font-outfit">{formatKrw(data.finalQuote)}</span>
-                                    </div>
-                                    <div className="bg-red-50 border border-red-100/50 px-4 py-3 rounded-2xl flex justify-between items-center">
-                                        <div className="flex items-center gap-2">
-                                            <Gift size={16} className="text-red-500" />
-                                            <span className="text-red-500 font-black text-xs">특별 프로모션 할인</span>
-                                        </div>
-                                        <span className="text-red-500 font-black text-base font-outfit">-{formatKrw(data.finalQuote - data.finalBenefit)}</span>
-                                    </div>
-                                    <div className="pt-6 border-t border-dashed border-gray-100 flex flex-col md:flex-row justify-between items-end gap-2 md:gap-0">
-                                        <span className="text-[#001a3d] font-black text-sm md:items-start">최종 할인 혜택가</span>
-                                        <div className="text-right w-full md:w-auto">
-                                            <span className="text-4xl font-black text-[#2563eb] tracking-tighter font-outfit">{formatKrw(data.finalBenefit).replace('원', '')}</span>
-                                            <span className="text-xl font-black text-[#2563eb] ml-0.5">원</span>
-                                        </div>
-                                    </div>
-
-                                    {/* 선납금 / 잔금 조정 영역 - Enhanced Premium Design */}
-                                    <div className="bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/50 p-4 md:p-6 rounded-[2rem] space-y-5 border border-blue-100/50 shadow-sm mt-4 relative">
-                                        <div className="absolute top-0 right-0 -mr-6 -mt-6 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl"></div>
-                                        
-                                        <div className="flex items-center justify-between mb-1">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div>
-                                                <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">스마트 구독 안내</span>
-                                            </div>
-                                            <div className="flex items-center gap-1 bg-blue-100 px-2 py-1 rounded-full whitespace-nowrap shrink-0">
-                                                <Sparkles size={10} className="text-blue-600 animate-pulse" />
-                                                <span className="text-[9px] font-black text-blue-700">부담 제약 해소</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-3 md:gap-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-blue-900/40 uppercase tracking-widest ml-1 flex items-center gap-1">
-                                                    <Wallet size={12} className="text-blue-500" /> 선납금
-                                                </label>
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        inputMode="numeric"
-                                                        value={new Intl.NumberFormat('ko-KR').format(downPayment)}
-                                                        onChange={(e) => {
-                                                            const val = Number(e.target.value.replace(/[^0-9]/g, ''));
-                                                            if (val <= data.finalBenefit) {
-                                                                setDownPayment(val);
-                                                                setBalance(data.finalBenefit - val);
-                                                            }
-                                                        }}
-                                                        className="w-full bg-white border border-blue-100 rounded-xl py-3 px-2 pr-6 text-[12px] min-[375px]:text-sm md:text-base font-black text-[#001a3d] outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-400/10 transition-all text-right shadow-sm"
-                                                    />
-                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">원</span>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1">
-                                                    <Clock size={12} /> 잔금
-                                                </label>
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        readOnly
-                                                        value={new Intl.NumberFormat('ko-KR').format(balance)}
-                                                        className="w-full bg-blue-50/50 border border-blue-100/30 rounded-xl py-3 px-2 pr-6 text-[12px] min-[375px]:text-sm md:text-base font-black text-blue-900/50 outline-none text-right"
-                                                    />
-                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300">원</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="relative pt-8 mt-2">
-                                            <div className="absolute top-0 left-0 right-0 flex justify-center z-10">
-                                                <div className="bg-blue-600 text-white text-[9px] font-black px-3 py-1 rounded-full shadow-lg animate-bounce whitespace-nowrap border border-white/20">
-                                                    목돈 부담을 줄이는 최고의 방법! ✨
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col gap-2.5 pt-2">
-                                                <button
-                                                    onClick={() => handleConversion('full')}
-                                                    className={`group relative flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-black transition-all shadow-md overflow-hidden ${conversionMode === 'full' 
-                                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-200' 
-                                                        : 'bg-white border-2 border-blue-50 text-blue-600 hover:border-blue-200'}`}
-                                                >
-                                                    <ArrowRightLeft size={16} /> 전액 구독 전환
-                                                </button>
-                                                <button
-                                                    onClick={() => handleConversion('balance')}
-                                                    className={`group relative flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-black transition-all shadow-md overflow-hidden ring-2 ring-yellow-400/20 ${conversionMode === 'balance' 
-                                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-200' 
-                                                        : 'bg-white border-2 border-yellow-400 text-blue-700 shadow-yellow-100 shadow-lg'}`}
-                                                >
-                                                    {/* Golden Shimmer Effect */}
-                                                    <div className="absolute inset-0 w-[200%] h-full bg-gradient-to-r from-transparent via-yellow-200/40 to-transparent -translate-x-full animate-[shimmer_3s_infinite] pointer-events-none"></div>
-                                                    
-                                                    <style dangerouslySetInnerHTML={{ __html: `
-                                                        @keyframes shimmer {
-                                                            0% { transform: translateX(-100%); }
-                                                            100% { transform: translateX(100%); }
-                                                        }
-                                                    `}} />
-                                                    
-                                                    <ArrowRightLeft size={16} className={conversionMode === 'balance' ? 'text-white' : 'text-yellow-600'} /> 
-                                                    <span className={conversionMode === 'balance' ? 'text-white' : 'text-[#001a3d]'}>잔금만 구독 전환</span>
-                                                    
-                                                    {!conversionMode && (
-                                                        <div className="absolute top-0 right-0 bg-yellow-400 text-[#001a3d] text-[10px] px-2 py-0.5 font-black rounded-bl-lg shadow-sm">
-                                                            추천
-                                                        </div>
-                                                    )}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {calculatedSubs && (
-                                        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-                                            <div className="bg-[#001a3d] p-6 md:p-8 rounded-[2rem] text-white space-y-6">
-                                                <div className="flex justify-between items-center px-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <Calculator size={16} className="text-[#c5a059]" />
-                                                        <h5 className="text-xs font-black">
-                                                            {conversionMode === 'full' ? '전액' : '잔금'} 구독 전환 견적
-                                                        </h5>
-                                                    </div>
-                                                    <span className="text-[10px] font-bold text-white/50">* 이자 포함 금액</span>
-                                                </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                                                    {[24, 36, 48, 60].map(m => (
-                                                        <div 
-                                                            key={m} 
-                                                            className={`relative p-4 rounded-2xl border transition-all text-center space-y-1 ${m === 60 ? 'bg-white text-[#001a3d] border-white shadow-xl' : 'bg-white/5 border-white/10 opacity-70'}`}
-                                                        >
-                                                            <p className={`text-[9px] font-black uppercase tracking-tighter ${m === 60 ? 'text-[#001a3d]/50' : 'text-white/40'}`}>{m}개월 약정</p>
-                                                            <p className="text-base font-black font-outfit">{new Intl.NumberFormat('ko-KR').format(calculatedSubs[m])}원</p>
-                                                            {m === 60 && (
-                                                                <div className="absolute -top-2 -right-1">
-                                                                    <div className="bg-[#ef4444] text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg animate-pulse">
-                                                                        인기
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <div className="flex flex-col gap-4">
-                                                    <button
-                                                        onClick={() => {
-                                                            setApplicationType('subscription');
-                                                            setIsRentalMode(true);
-                                                            setRentalStep(1);
-                                                            setRentalForm(prev => ({ 
-                                                                ...prev, 
-                                                                selectedAmount: 60, // Fixed to 60
-                                                                isConversion: true,
-                                                                conversionSubs: calculatedSubs,
-                                                                conversionMode: conversionMode,
-                                                                downPaymentToReport: conversionMode === 'balance' ? downPayment : 0
-                                                            }));
-                                                        }}
-                                                        className="w-full py-4 bg-[#c5a059] text-sm font-black text-[#001a3d] rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all shadow-xl flex items-center justify-center gap-2"
-                                                    >
-                                                        구독 신청하기 <ChevronRight size={16} />
-                                                    </button>
-                                                    <p className="text-[10px] text-center text-[#c5a059] font-bold">
-                                                        * 위 {conversionMode === 'full' ? '전액' : `잔금(${formatKrw(balance)})`}에 대한 월 구독료 견적입니다.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                <div className="space-y-12">
+                    <div className="text-center space-y-6">
+                        <div className="inline-block relative">
+                            <div className="absolute inset-0 bg-[#c5a059] blur-2xl opacity-20 -m-4"></div>
+                            <div className="relative bg-[#001a3d] text-[#c5a059] px-8 py-3 rounded-2xl md:rounded-3xl border border-[#c5a059]/30 shadow-2xl">
+                                <span className="text-xs md:text-sm font-black tracking-[0.3em] uppercase">결제 방식 안내</span>
                             </div>
+                        </div>
 
-                        {/* 3. 60개월 렌탈 고정형 패키지 */}
-                        <div className="bg-[#1e293b] p-6 md:p-10 text-white relative overflow-hidden shadow-xl shadow-black/10 rounded-[2.5rem]">
-                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 rounded-full blur-[80px] -ml-24 -mb-24 opacity-30"></div>
-                            <div className="relative z-10 mb-6">
-                                <div className="flex justify-between items-start md:items-center mb-2">
-                                    <div className="flex items-start md:items-center gap-2.5">
-                                        <div className="w-6 h-6 bg-white/20 text-white rounded-full flex items-center justify-center text-[10px] font-black border border-white/20 font-outfit shrink-0 mt-0.5 md:mt-0">3</div>
-                                        <h4 className="text-base font-black text-white leading-tight">
-                                            60개월 렌탈<br className="md:hidden" /> 고정형 패키지
-                                        </h4>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setApplicationType('rental');
-                                            setIsRentalMode(true);
-                                            setRentalStep(1);
-                                        }}
-                                        className="bg-[#c5a059] hover:bg-[#b08d48] text-[#001a3d] text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg transition-all active:scale-95 flex items-center gap-1 shrink-0"
-                                    >
-                                        렌탈 신청하기 <ChevronRight size={10} />
-                                    </button>
-                                </div>
-                                <p className="text-white/60 text-[11px] font-medium ml-8">매월 일정금액을 고정시키고 일부 금액만 선납형으로 결제하는 하이브리드 렌탈 서비스 입니다.</p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full relative z-10">
-                                {[11, 22, 33].map(val => (
-                                    <div key={val} className="bg-white/[0.08] backdrop-blur-md border border-white/10 p-4 md:p-6 rounded-2xl transition-all text-center group flex flex-col justify-center shadow-inner">
-                                        <div className="text-[#c5a059] text-sm md:text-base font-black mb-1 md:mb-2 tracking-tight group-hover:scale-105 transition-transform">
-                                            월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원 고정
-                                        </div>
-                                        <div className="flex flex-row md:flex-col items-center justify-center gap-2 md:gap-0.5">
-                                            <p className="text-[8px] text-white/40 font-black tracking-widest uppercase">선납금</p>
-                                            <p className="text-lg md:text-xl font-black text-white font-outfit whitespace-nowrap">{calculatePackage(data.finalBenefit, val * 10000, val * 500000 / 1.1)}</p>
-                                        </div>
+                        <div className="space-y-8">
+                            <h3 className="text-3xl md:text-5xl font-extrabold text-[#001a3d] leading-none tracking-tighter">
+                                결제 방식별 상세 제안
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 max-w-4xl mx-auto">
+                                {[
+                                    { id: 1, text: '그린리모델링 PLUS' },
+                                    { id: 2, text: '60개월 렌탈 고정 패키지' },
+                                    { id: 3, text: '일시불 특별 할인' }
+                                ].map((item) => (
+                                    <div key={item.id} className="bg-white backdrop-blur-sm border border-gray-100 p-4 rounded-2xl flex items-center gap-4 shadow-sm transition-all hover:border-[#001a3d]/30 hover:shadow-md">
+                                        <span className="text-xs font-black w-7 h-7 bg-[#001a3d] text-white rounded-full flex items-center justify-center shrink-0 shadow-lg">{item.id}</span>
+                                        <span className="text-sm md:text-base font-black text-[#2c3e50]">{item.text}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
+                    </div>
 
-                        <div className="grid grid-cols-1 gap-6">
-                            {/* 구독 PLUS 서비스 */}
-                            <div className="purple-premium-gradient p-8 md:p-14 text-white relative overflow-hidden shadow-2xl flex flex-col justify-between">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-4xl"></div>
-                                <div className="relative z-10 space-y-12">
-                                    <div className="space-y-4 text-center">
-                                        <span className="bg-[#facc15] text-[#311b92] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block shadow-lg">Special Promotion</span>
-                                        <div className="space-y-1">
-                                            <p className="text-sm md:text-base font-bold text-white/80">KCC홈씨씨 견적 고객 대상</p>
-                                            <h3 className="text-2xl md:text-3xl font-black tracking-tight leading-tight">LG전자 가전구독료 <br className="md:hidden" /> 할인 프로모션 진행 중</h3>
+                    {/* 최종 제안 견적가 */}
+                    <div className="bg-white rounded-2xl p-8 md:p-12 shadow-2xl shadow-gray-200/50 border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-gray-50 rounded-full -mr-24 -mt-24 transition-transform group-hover:scale-125 duration-700"></div>
+                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+                            <div className="w-16 h-16 md:w-20 md:h-20 bg-[#001a3d] rounded-2xl flex items-center justify-center text-[#c5a059] shadow-xl border border-[#c5a059]/20 relative">
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#c5a059] text-[#001a3d] p-1.5 rounded-full shadow-lg">
+                                    <Crown size={18} fill="currentColor" />
+                                </div>
+                                <Calculator size={32} />
+                            </div>
+                            <div className="text-center md:text-left">
+                                <p className="text-[#c5a059] text-[11px] font-black uppercase tracking-[0.25em] mb-1">최종 제안 견적가</p>
+                                <h5 className="text-3xl md:text-5xl font-black text-[#001a3d] tracking-tighter font-outfit">
+                                    {formatKrw(data.finalQuote)}
+                                </h5>
+                            </div>
+                        </div>
+                        <div className="relative z-10 hidden md:block opacity-20">
+                            <Crown size={80} className="text-[#001a3d]" />
+                        </div>
+                    </div>
+
+                    {/* 1. 그린리모델링 PLUS */}
+                    <div className="space-y-4">
+                        <div className="bg-gradient-to-br from-[#001a3d] to-[#003366] rounded-2xl overflow-hidden shadow-2xl relative">
+                            {/* Decorative Background Elements */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-[#c5a059]/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -ml-24 -mb-24"></div>
+                            
+                            <div className="p-6 md:p-12 space-y-6 md:space-y-10 relative z-10">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div className="space-y-3">
+                                        <div className="inline-flex items-center gap-2 bg-[#c5a059] text-[#001a3d] px-3 py-1 rounded-xl">
+                                            <Sparkles size={12} className="animate-pulse" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest">프리미엄 혜택</span>
+                                        </div>
+                                        <h4 className="text-2xl md:text-5xl font-black text-white tracking-tighter leading-none">
+                                            그린리모델링 <span className="text-[#c5a059]">PLUS</span>
+                                        </h4>
+                                    </div>
+                                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 rounded-xl max-w-sm">
+                                        <p className="text-white/80 text-[13px] font-bold leading-relaxed break-keep">
+                                            정부 사업과 동일한 <span className="text-[#c5a059] font-black">60개월 이자 지원(연 4%)</span> 혜택을 제공합니다.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Calculator UI */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
+                                    <div className="space-y-6 bg-white/5 p-6 rounded-2xl border border-white/10">
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-white/50 uppercase tracking-widest ml-1">신청 금액 설정</label>
+                                                    <div className="relative">
+                                                        <input 
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            value={plusConversionAmount.toLocaleString()}
+                                                            onChange={(e) => {
+                                                                const val = Number(e.target.value.replace(/[^0-9]/g, ''));
+                                                                if (val <= data.finalQuote) setPlusConversionAmount(val);
+                                                            }}
+                                                            className="w-full bg-white/10 border border-white/20 rounded-xl py-3 px-4 text-base font-black text-white outline-none focus:bg-white/20 focus:border-[#c5a059] transition-all text-right font-outfit"
+                                                        />
+                                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-[10px] font-bold">₩</span>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-white/50 uppercase tracking-widest ml-1">선납금 (현금/카드)</label>
+                                                    <div className="bg-black/20 rounded-xl py-3 px-4 text-right">
+                                                        <span className="text-base font-black text-white/60 font-outfit">{(plusCalc?.downPayment || 0).toLocaleString()}</span>
+                                                        <span className="text-[10px] text-white/30 ml-2 font-bold">원</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-white/50 uppercase tracking-widest ml-1">할부 개월 선택</label>
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    {[24, 36, 48, 60].map(m => (
+                                                        <button 
+                                                            key={m}
+                                                            onClick={() => setPlusMonths(m)}
+                                                            className={`py-3 rounded-xl font-black text-xs transition-all border ${plusMonths === m 
+                                                                ? 'bg-[#c5a059] border-[#c5a059] text-[#001a3d] shadow-lg' 
+                                                                : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                                                        >
+                                                            {m}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            <div className="bg-white/5 px-3 py-2 rounded-lg flex flex-col items-center justify-center border border-white/5">
+                                                <p className="text-[9px] text-white/40 font-black uppercase mb-0.5">기준 이율</p>
+                                                <p className="text-xs font-black text-white font-outfit">연 6%</p>
+                                            </div>
+                                            <div className="bg-[#c5a059]/10 px-3 py-2 rounded-lg flex flex-col items-center justify-center border border-[#c5a059]/20">
+                                                <p className="text-[9px] text-[#c5a059] font-black uppercase mb-0.5">지원 이율</p>
+                                                <p className="text-xs font-black text-[#c5a059] font-outfit">연 4%</p>
+                                            </div>
+                                            <div className="bg-blue-500/10 px-3 py-2 rounded-lg flex flex-col items-center justify-center border border-blue-500/20">
+                                                <p className="text-[9px] text-blue-400 font-black uppercase mb-0.5">부담 이율</p>
+                                                <p className="text-xs font-black text-blue-400 font-outfit">연 2%</p>
+                                            </div>
                                         </div>
                                     </div>
-                                    
-                                    <div className="max-w-2xl mx-auto w-full">
-                                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] space-y-8 shadow-2xl relative overflow-hidden group">
-                                            <div className="absolute top-0 right-0 p-4 opacity-20">
-                                                <img src="https://www.lge.co.kr/lg5-common/images/header/lg_logo_new.svg" alt="LG Logo" className="h-10 w-auto grayscale brightness-0 invert opacity-20" />
-                                            </div>
-                                            
-                                            <div className="space-y-4">
-                                                <div className="flex items-start gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-                                                    <div className="w-12 h-12 bg-[#facc15] text-[#311b92] rounded-xl flex items-center justify-center shrink-0 shadow-lg font-black text-lg font-outfit">10%</div>
+
+                                    <div className="flex flex-col justify-between space-y-6">
+                                        <div className="space-y-4">
+                                            <div className="bg-white p-6 rounded-2xl shadow-xl">
+                                                <div className="text-right space-y-1">
+                                                    <p className="text-[#c5a059] text-[10px] font-black uppercase tracking-widest">월 납부금</p>
                                                     <div>
-                                                        <p className="text-[#facc15] text-[10px] font-black uppercase tracking-widest mb-1">Monthly Discount</p>
-                                                        <p className="text-base md:text-lg font-black text-white leading-tight">LG전자 가전구독료 <span className="text-[#facc15]">매월 10%</span> 할인</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-start gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-                                                    <div className="w-12 h-12 bg-white/20 text-white rounded-xl flex items-center justify-center shrink-0 border border-white/20"><CheckCircle size={24} /></div>
-                                                    <div>
-                                                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">Target Products</p>
-                                                        <p className="text-base md:text-lg font-black text-white leading-tight">LG전자 홈페이지 전제품 대상</p>
+                                                        <span className="text-4xl md:text-5xl font-black text-[#001a3d] tracking-tighter font-outfit">{plusCalc?.monthlyPayment.toLocaleString()}</span>
+                                                        <span className="text-lg font-black text-[#001a3d] ml-1">원</span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-6 pt-2">
-                                                <p className="text-sm md:text-base font-bold text-white/90 leading-relaxed break-keep text-center md:text-left">
-                                                    창호 교체하면서 가전까지 고민 중이라면, 어디에서도 만날 수 없는 <span className="text-[#facc15] underline underline-offset-4 decoration-[#facc15]/30">LG가전 구독료 10% 할인 혜택</span>을 놓치지 마세요! <br className="hidden md:block" />
-                                                    오직 KCC홈씨씨 견적 고객에게만 적용해 드립니다.
+                                            <div className="bg-[#001a3d] p-4 md:p-5 rounded-2xl shadow-xl border border-white/10 text-white group-hover:scale-[1.01] transition-transform">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <Sparkles size={16} className="text-[#c5a059]" />
+                                                    <p className="text-[11px] font-black uppercase tracking-widest text-[#c5a059]">이자 전액 지원 혜택</p>
+                                                </div>
+                                                <p className="text-[14px] md:text-[15px] font-bold leading-relaxed break-keep">
+                                                    준정부 지원을 통해 총 <span className="inline-block bg-[#c5a059] text-[#001a3d] text-lg md:text-2xl font-black px-3 py-1 rounded-xl shadow-lg mx-1">{formatKrw(plusCalc?.supportedInterest)}</span>을 지원받고, <br className="hidden md:block" />
+                                                    월 <span className="font-outfit font-black text-white text-lg">{formatKrw(plusCalc?.monthlyPayment)}</span>에 이용 가능합니다.
                                                 </p>
-                                                <div className="bg-white/5 p-5 rounded-2xl border border-dashed border-white/20 text-center">
-                                                    <p className="text-xs md:text-sm font-black text-white/60 leading-relaxed">
-                                                        신청 문의는 <span className="text-white">창호 상담사</span>를<br className="md:hidden" /> 통해서 가능합니다.
-                                                    </p>
+                                            </div>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => {
+                                                setApplicationType('subscription');
+                                                setIsRentalMode(true);
+                                                setRentalStep(1);
+                                                setRentalForm(prev => ({ 
+                                                    ...prev, 
+                                                    selectedAmount: plusMonths,
+                                                    isConversion: true,
+                                                    conversionSubs: { [plusMonths]: plusCalc?.monthlyPayment },
+                                                    conversionMode: 'plus',
+                                                    downPaymentToReport: plusCalc?.downPayment
+                                                }));
+                                            }}
+                                            className="w-full py-5 bg-gradient-to-r from-[#001a3d] to-[#003366] text-white text-base font-black rounded-xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/10 relative overflow-hidden group"
+                                        >
+                                            <div className="absolute top-0 -inset-full h-full w-full z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent via-[#c5a059]/40 to-transparent animate-gold-sweep opacity-80"></div>
+                                            <span className="relative z-10">PLUS 혜택 신청하기</span>
+                                            <ArrowRightLeft size={16} className="relative z-10 transition-transform duration-500 group-hover:rotate-180" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 2. 60개월 렌탈 고정 패키지 */}
+                    {/* 2. 60개월 렌탈 고정 패키지 */}
+                    <div className="bg-slate-900 text-white rounded-2xl p-5 md:p-12 border border-white/10 shadow-2xl space-y-6 relative overflow-hidden group" style={{ backgroundColor: '#0f172a' }}>
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-white/10 text-white rounded-xl flex items-center justify-center shadow-lg border border-white/20">
+                                    <Clock size={16} />
+                                </div>
+                                <h4 className="text-lg md:text-2xl font-black text-white tracking-tight">60개월 렌탈 고정 패키지</h4>
+                            </div>
+                            <p className="text-white/60 text-xs md:text-sm font-bold leading-relaxed break-keep">
+                                월 렌탈료를 고정하여 잔액만 먼저 납입하는 실속형 프로그램입니다.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
+                            {[11, 22, 33].map(val => (
+                                <div key={val} className="bg-white/5 p-4 md:p-6 rounded-xl border border-white/10 shadow-sm transition-all flex flex-col justify-between">
+                                    <div className="space-y-3">
+                                        <div className="bg-black/30 text-[#c5a059] py-1.5 rounded-lg text-[9px] font-black uppercase text-center border border-[#c5a059]/20">패키지 {val === 11 ? 'A' : val === 22 ? 'B' : 'C'}</div>
+                                        <div className="text-center space-y-0.5">
+                                            <p className="text-white text-2xl font-black tracking-tighter">월 {val === 11 ? '111,000' : val === 22 ? '222,000' : '333,000'}원</p>
+                                            <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">x 60개월</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t border-dashed border-white/20 space-y-0.5 text-center">
+                                        <p className="text-[9px] text-white/50 font-bold uppercase tracking-widest">초기 납입액 (잔액)</p>
+                                        <p className="text-lg font-black text-[#c5a059] font-outfit">{calculatePackage(data.finalBenefit, val === 11 ? 111000 : val === 22 ? 222000 : 333000, val === 11 ? 5000000 : val === 22 ? 10000000 : 15000000)}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="pt-4">
+                            <button 
+                                onClick={() => {
+                                    setApplicationType('rental');
+                                    setIsRentalMode(true);
+                                    setRentalForm(prev => ({ ...prev, selectedAmount: 111000 }));
+                                    setRentalStep(1);
+                                }}
+                                className="w-full py-5 bg-[#c5a059] text-[#001a3d] text-base md:text-lg font-black rounded-xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-2 relative overflow-hidden group/btn"
+                            >
+                                <div className="absolute top-0 -inset-full h-full w-full z-10 block transform -skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-gold-sweep opacity-30"></div>
+                                <span className="relative z-20">렌탈 패키지 신청하기</span>
+                                <ArrowRightLeft size={18} className="relative z-20 transition-transform duration-500 group-hover/btn:rotate-180" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 3. 일시불 특별 할인 */}
+                    {/* 3. 일시불 특별 할인 */}
+                    <div className="bg-[#001a3d] text-white rounded-2xl p-5 md:p-12 border border-white/10 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-[#3b82f6]"></div>
+                        <div className="space-y-6 relative z-10 flex flex-col h-full">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-[#3b82f6]/10 text-[#60a5fa] rounded-xl flex items-center justify-center shadow-lg border border-[#3b82f6]/20">
+                                            <Wallet size={16} />
+                                        </div>
+                                        <h4 className="text-lg md:text-2xl font-black text-white tracking-tight">일시불 특별 할인</h4>
+                                    </div>
+                                    <p className="text-white/60 text-xs font-bold leading-relaxed break-keep">
+                                        현금 또는 카드 일시불 결제 시 제공되는 혜택입니다.
+                                    </p>
+                                </div>
+                                <div className="w-full md:w-auto text-center md:text-right">
+                                    <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mb-0.5">총 할인 혜택</p>
+                                    <p className="text-2xl md:text-4xl font-black text-[#60a5fa] tracking-tighter">-{formatKrw(data.finalQuote - data.finalBenefit)}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/5 rounded-xl p-5 md:p-8 text-center space-y-6 border border-white/10 shadow-sm">
+                                <div className="space-y-1">
+                                    <p className="text-white/50 text-[9px] font-black uppercase tracking-widest">최종 할인 적용금액</p>
+                                    <p className="text-3xl md:text-5xl font-black text-[#facc15] font-outfit tracking-tighter">{formatKrw(data.finalBenefit)}</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-w-md mx-auto w-full">
+                                    <div className="bg-black/20 py-3 rounded-xl border border-white/10 text-white/80 font-bold text-[10px] flex items-center justify-center gap-2 whitespace-nowrap">
+                                        <CheckCircle size={12} className="text-[#3b82f6] shrink-0" /> 카드 : 결제 링크 제공
+                                    </div>
+                                    <div className="bg-black/20 py-3 rounded-xl border border-white/10 text-white/80 font-bold text-[10px] flex items-center justify-center gap-2 whitespace-nowrap">
+                                        <CheckCircle size={12} className="text-[#3b82f6] shrink-0" /> 현금 : 현금영수증 발행 가능
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-[#3b82f6]/10 py-3 rounded-xl border border-[#3b82f6]/20 text-[#60a5fa] text-[10px] font-black text-center justify-center flex items-center">
+                                     선금 50% / 잔금 50% 분할 결제 지원
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                        {/* 구독 PLUS 서비스 */}
+                        <div className="purple-premium-gradient p-8 md:p-14 text-white relative overflow-hidden shadow-2xl flex flex-col justify-between rounded-2xl">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-4xl"></div>
+                            <div className="relative z-10 space-y-12">
+                                <div className="space-y-4 text-center">
+                                    <span className="bg-[#facc15] text-[#311b92] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block shadow-lg">특별 프로모션</span>
+                                    <div className="space-y-1">
+                                        <p className="text-sm md:text-base font-bold text-white/80">KCC홈씨씨 견적 고객 대상</p>
+                                        <h3 className="text-2xl md:text-3xl font-black tracking-tight leading-tight">LG전자 가전구독료 <br className="md:hidden" /> 할인 프로모션 진행 중</h3>
+                                    </div>
+                                </div>
+                                
+                                <div className="max-w-2xl mx-auto w-full">
+                                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] space-y-8 shadow-2xl relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-4 opacity-20">
+                                            <img src="https://www.lge.co.kr/lg5-common/images/header/lg_logo_new.svg" alt="LG Logo" className="h-10 w-auto grayscale brightness-0 invert opacity-20" />
+                                        </div>
+                                        
+                                        <div className="space-y-4">
+                                            <div className="flex items-start gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+                                                <div className="w-12 h-12 bg-[#facc15] text-[#311b92] rounded-xl flex items-center justify-center shrink-0 shadow-lg font-black text-lg font-outfit">10%</div>
+                                                <div>
+                                                    <p className="text-[#facc15] text-[10px] font-black uppercase tracking-widest mb-1">매월 할인 혜택</p>
+                                                    <p className="text-base md:text-lg font-black text-white leading-tight">LG전자 가전구독료 <span className="text-[#facc15]">매월 10%</span> 할인</p>
                                                 </div>
-                                                <div className="pt-2 flex justify-center">
-                                                    <a
-                                                        href="https://www.lge.co.kr/care-solutions"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="w-full bg-white text-[#311b92] py-3.5 rounded-xl font-black text-xs md:text-sm shadow-xl hover:bg-[#facc15] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 group"
-                                                    >
-                                                        LG구독 홈페이지 바로가기
-                                                        <ExternalLink size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                                                    </a>
+                                            </div>
+                                            <div className="flex items-start gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+                                                <div className="w-12 h-12 bg-white/20 text-white rounded-xl flex items-center justify-center shrink-0 border border-white/20"><CheckCircle size={24} /></div>
+                                                <div>
+                                                    <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">대상 제품</p>
+                                                    <p className="text-base md:text-lg font-black text-white leading-tight">LG전자 홈페이지 전제품 대상</p>
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-6 pt-2">
+                                            <p className="text-sm md:text-base font-bold text-white/90 leading-relaxed break-keep text-center md:text-left">
+                                                창호 교체하면서 가전까지 고민 중이라면, 어디에서도 만날 수 없는 <span className="text-[#facc15] underline underline-offset-4 decoration-[#facc15]/30">LG가전 구독료 10% 할인 혜택</span>을 놓치지 마세요! <br className="hidden md:block" />
+                                                오직 KCC홈씨씨 견적 고객에게만 적용해 드립니다.
+                                            </p>
+                                            <div className="bg-white/5 p-5 rounded-2xl border border-dashed border-white/20 text-center">
+                                                <p className="text-xs md:text-sm font-black text-white/60 leading-relaxed">
+                                                    신청 문의는 <span className="text-white">창호 상담사</span>를<br className="md:hidden" /> 통해서 가능합니다.
+                                                </p>
+                                            </div>
+                                            <div className="pt-2 flex justify-center">
+                                                <a
+                                                    href="https://www.lge.co.kr/care-solutions"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="w-full bg-white text-[#311b92] py-3.5 rounded-xl font-black text-xs md:text-sm shadow-xl hover:bg-[#facc15] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 group"
+                                                >
+                                                    LG구독 홈페이지 바로가기
+                                                    <ExternalLink size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                                </a>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* 전용 혜택 카드 */}
-                            <div className="luxury-card p-10 md:p-14 bg-white border border-gray-100 shadow-xl space-y-10">
-                                <h4 className="text-xl md:text-2xl font-black text-[#001a3d] flex items-center gap-3 md:gap-4 whitespace-nowrap">
-                                    <div className="w-2 h-8 md:w-2.5 md:h-10 bg-[#c5a059] rounded-full shrink-0"></div>
-                                    계약 고객 특별 무상 서비스
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-[#f8fafc] p-6 md:p-8 rounded-[2rem] flex items-center gap-5 md:gap-8 border border-gray-100/50 hover:bg-white transition-all group cursor-default shadow-sm hover:shadow-xl hover:shadow-gray-200/50">
-                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-white shadow-lg rounded-[1rem] md:rounded-[1.25rem] flex items-center justify-center text-[#c5a059] transition-transform group-hover:rotate-6 border border-gray-50"><ShieldCheck size={28} className="md:w-8 md:h-8" /></div>
-                                        <div>
-                                            <p className="text-[9px] md:text-[11px] font-black text-[#c5a059] uppercase tracking-[0.15em] mb-1 opacity-80 whitespace-nowrap">Upgrade Option 01</p>
-                                            <p className="text-base md:text-lg font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
-                                                고성능 더블로이유리<br /> 무상 업그레이드
+                        {/* 특별 무상 서비스 - Centered and Pink Spinning Border */}
+                        <div className="pink-spin-border shadow-2xl relative">
+                            <div className="p-6 md:p-14 space-y-8 relative z-10">
+                                {/* Festive background elements */}
+                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/5 rounded-full blur-3xl group-hover:bg-pink-500/10 transition-colors"></div>
+                                
+                                <div className="flex flex-col items-center text-center space-y-4 relative z-10">
+                                    <div className="inline-flex items-center justify-center w-16 h-16 bg-[#c5a059] text-white rounded-2xl shadow-lg shadow-[#c5a059]/30 mb-2 relative">
+                                        <Gift size={32} />
+                                        <Sparkles size={20} className="absolute -top-2 -right-2 text-pink-400 animate-pulse" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h4 className="text-2xl md:text-4xl font-black text-[#001a3d] tracking-tighter flex items-center justify-center gap-2">
+                                            <Sparkles size={24} className="text-pink-500 hidden md:block" />
+                                            특별 무상 서비스
+                                            <Sparkles size={24} className="text-pink-500 hidden md:block" />
+                                        </h4>
+                                        <p className="text-pink-500 text-xs font-black uppercase tracking-widest opacity-80">Premium Benefit Celebration</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+                                    <div className="bg-[#fcf8f0] p-6 md:p-8 rounded-[2rem] flex flex-col items-center md:flex-row text-center md:text-left gap-4 md:gap-8 border-2 border-white shadow-sm hover:border-pink-200 transition-all group/item overflow-hidden relative">
+                                        <div className="absolute inset-0 bg-pink-50/40 translate-y-full group-hover/item:translate-y-0 transition-transform duration-500"></div>
+                                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white shadow-lg rounded-[1.25rem] flex items-center justify-center text-[#c5a059] shrink-0 border border-pink-100 relative z-10">
+                                            <ShieldCheck size={30} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <p className="text-[10px] md:text-[11px] font-black text-pink-500 uppercase tracking-[0.2em] mb-1.5 opacity-90">Upgrade Option 01</p>
+                                            <p className="text-lg md:text-xl font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
+                                                고성능 더블로이유리<br className="hidden md:block" /> 무상 업그레이드
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="bg-[#f8fafc] p-6 md:p-8 rounded-[2rem] flex items-center gap-5 md:gap-8 border border-gray-100/50 hover:bg-white transition-all group cursor-default shadow-sm hover:shadow-xl hover:shadow-gray-200/50">
-                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-white shadow-lg rounded-[1rem] md:rounded-[1.25rem] flex items-center justify-center text-[#c5a059] transition-transform group-hover:rotate-6 border border-gray-50"><ExternalLink size={28} className="md:w-8 md:h-8" /></div>
-                                        <div>
-                                            <p className="text-[9px] md:text-[11px] font-black text-[#c5a059] uppercase tracking-[0.15em] mb-1 opacity-80 whitespace-nowrap">Upgrade Option 02</p>
-                                            <p className="text-base md:text-lg font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
-                                                최고급 블랙 STS<br /> 방충망 전면 교체
+                                    <div className="bg-[#fcf8f0] p-6 md:p-8 rounded-[2rem] flex flex-col items-center md:flex-row text-center md:text-left gap-4 md:gap-8 border-2 border-white shadow-sm hover:border-pink-200 transition-all group/item overflow-hidden relative">
+                                        <div className="absolute inset-0 bg-pink-50/40 translate-y-full group-hover/item:translate-y-0 transition-transform duration-500"></div>
+                                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white shadow-lg rounded-[1.25rem] flex items-center justify-center text-[#c5a059] shrink-0 border border-pink-100 relative z-10">
+                                            <PartyPopper size={30} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <p className="text-[10px] md:text-[11px] font-black text-pink-500 uppercase tracking-[0.2em] mb-1.5 opacity-90">Upgrade Option 02</p>
+                                            <p className="text-lg md:text-xl font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
+                                                최고급 블랙 STS<br className="hidden md:block" /> 방충망 전면 교체
                                             </p>
                                         </div>
                                     </div>
                                 </div>
+                                
+                                {/* Decorative particles */}
+                                <div className="absolute top-4 left-1/4 w-1 h-1 bg-pink-400 rounded-full animate-ping opacity-70"></div>
+                                <div className="absolute bottom-10 right-1/4 w-1.5 h-1.5 bg-pink-500 rounded-full animate-ping opacity-50 delay-700"></div>
                             </div>
                         </div>
                     </div>
@@ -912,9 +1062,48 @@ const CustomerPage = () => {
                                                 </div>
                                             </div>
 
+                                            {/* 유리 정보 통합 2열 레이아웃 */}
+                                            {!item.isEtc && (
+                                                <div className="col-span-2 grid grid-cols-2 gap-3 pt-2 border-t border-gray-100/50">
+                                                    {/* 1. 유리 사양 */}
+                                                    <div className="space-y-1.5 mt-1">
+                                                        <p className="text-gray-400 text-[8px] uppercase tracking-widest font-black opacity-60">유리사양</p>
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="bg-[#ebf5ff] text-[#2563eb] px-2 py-1.5 rounded-lg border border-blue-50 flex flex-col min-h-[42px] justify-center text-center">
+                                                                <span className="text-[7px] font-black opacity-50 uppercase tracking-tighter mb-0.5">Inner</span>
+                                                                <span className="text-[9px] font-black leading-tight break-keep">{item.glassIn || '-'}</span>
+                                                            </div>
+                                                            {item.glassOut && item.glassOut.trim() !== "" && (
+                                                                <div className="bg-[#fff0f6] text-[#db2777] px-2 py-1.5 rounded-lg border border-pink-50 flex flex-col min-h-[42px] justify-center text-center">
+                                                                    <span className="text-[7px] font-black opacity-50 uppercase tracking-tighter mb-0.5">Outer</span>
+                                                                    <span className="text-[9px] font-black leading-tight break-keep">{item.glassOut}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 2. 유리 두께 */}
+                                                    <div className="space-y-1.5 mt-1">
+                                                        <p className="text-gray-400 text-[8px] uppercase tracking-widest font-black opacity-60">유리두께</p>
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="bg-[#ebf5ff] text-[#2563eb] px-2 py-1.5 rounded-lg border border-blue-50 flex flex-col min-h-[42px] justify-center opacity-90 text-center">
+                                                                <span className="text-[7px] font-black opacity-50 uppercase tracking-tighter mb-0.5">Inner Thick</span>
+                                                                <span className="text-[9px] font-black leading-tight">{item.thickIn || '-'}</span>
+                                                            </div>
+                                                            {item.thickOut && item.thickOut.trim() !== "" && (
+                                                                <div className="bg-[#fff0f6] text-[#db2777] px-2 py-1.5 rounded-lg border border-pink-50 flex flex-col min-h-[42px] justify-center opacity-90 text-center">
+                                                                    <span className="text-[7px] font-black opacity-50 uppercase tracking-tighter mb-0.5">Outer Thick</span>
+                                                                    <span className="text-[9px] font-black leading-tight">{item.thickOut || '-'}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {/* 옵션 정보 (잠금장치/방충망) */}
                                             {(item.handle || item.screen) && !item.isEtc && (
-                                                <div className="col-span-2 space-y-1 pt-1 border-t border-gray-100/50 mt-1">
+                                                <div className="col-span-2 space-y-1 pt-2 border-t border-gray-100/50 mt-1">
                                                     <p className="text-gray-400 text-[8px] uppercase tracking-widest font-black opacity-60">추가 옵션</p>
                                                     <div className="grid grid-cols-2 gap-2">
                                                         {item.handle && (
@@ -930,51 +1119,6 @@ const CustomerPage = () => {
                                                             </div>
                                                         )}
                                                     </div>
-                                                </div>
-                                            )}
-
-                                            {!item.isEtc && (
-                                                <div className="col-span-2 pt-2 border-t border-gray-100/50 space-y-3">
-
-                                                    {/* 1. 유리 사양 (스펙) - 한 줄에 파란색/핑크색 */}
-                                                    <div className="space-y-1">
-                                                        <p className="text-gray-400 text-[8px] uppercase tracking-widest font-black opacity-60">유리사양</p>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <div className="bg-[#ebf5ff] text-[#2563eb] px-2.5 py-2 rounded-lg border border-blue-50 flex flex-col justify-center">
-                                                                <span className="text-[8px] font-black opacity-50 uppercase tracking-tighter mb-0.5">Inner (내부)</span>
-                                                                <span className="text-[10px] font-black leading-tight break-keep">{item.glassIn || '-'}</span>
-                                                            </div>
-                                                            {item.glassOut && item.glassOut.trim() !== "" && (
-                                                                <div className="bg-[#fff0f6] text-[#db2777] px-2.5 py-2 rounded-lg border border-pink-50 flex flex-col justify-center">
-                                                                    <span className="text-[8px] font-black opacity-50 uppercase tracking-tighter mb-0.5">Outer (외부)</span>
-                                                                    <span className="text-[10px] font-black leading-tight break-keep">{item.glassOut}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* 2. 유리 두께/종류 (상세) - 한 줄에 파란색/핑크색 */}
-                                                    {(item.thickIn || item.typeIn || item.thickOut || item.typeOut) && (
-                                                        <div className="space-y-1">
-                                                            <p className="text-gray-400 text-[8px] uppercase tracking-widest font-black opacity-60">유리두께</p>
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <div className="bg-[#ebf5ff] text-[#2563eb] px-2.5 py-2 rounded-lg border border-blue-50 flex flex-col justify-center opacity-90">
-                                                                    <span className="text-[8px] font-black opacity-50 uppercase tracking-tighter mb-0.5">Inner Thick</span>
-                                                                    <div className="text-[9px] font-bold flex gap-1.5 items-center">
-                                                                        <span>{item.thickIn || '-'}</span>
-                                                                    </div>
-                                                                </div>
-                                                                {(item.thickOut) && (
-                                                                    <div className="bg-[#fff0f6] text-[#db2777] px-2.5 py-2 rounded-lg border border-pink-50 flex flex-col justify-center opacity-90">
-                                                                        <span className="text-[8px] font-black opacity-50 uppercase tracking-tighter mb-0.5">Outer Thick</span>
-                                                                        <div className="text-[9px] font-bold flex gap-1.5 items-center">
-                                                                            <span>{item.thickOut || '-'}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -1040,7 +1184,6 @@ const CustomerPage = () => {
             <div className="pt-2 border-t border-gray-100/30 text-center">
                 <img src="https://cdn.imweb.me/upload/S20250904697320f4fd9ed/87d2040aa0130.png" alt="하단 로고" className="w-full max-w-2xl mx-auto object-contain opacity-100 rounded-2xl" />
             </div>
-        </div>
 
             {/* Contact Menu */}
             <div className="fixed bottom-8 right-8 z-[60] flex flex-col items-end gap-3">

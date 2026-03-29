@@ -21,6 +21,7 @@ export default defineSchema({
         sub48: v.number(),
         sub60: v.number(),
         items: v.string(), // JSON string for now to keep it simple and compatible with existing logic
+        calculations: v.optional(v.string()), // Combined calc state JSON
         storageId: v.optional(v.id("_storage")),
         pdfUrl: v.optional(v.string()),
         remark: v.optional(v.string()),
