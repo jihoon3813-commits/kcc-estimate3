@@ -365,6 +365,17 @@ export const submitSubscriptionApplication = async (customerData, form, draftId)
             }));
         }
 
+        // Calculate monthly amount for subscription (plus)
+        let monthlyAmount = 0;
+        if (form.isConversion && form.conversionAmount > 0 && form.selectedAmount) {
+            const amount = form.conversionAmount;
+            const years = form.selectedAmount / 12;
+            const customerRate = 0.02;
+            const customerInterest = Math.floor(amount * customerRate * years);
+            const totalPayment = amount + customerInterest;
+            monthlyAmount = Math.floor((totalPayment / form.selectedAmount) / 100) * 100;
+        }
+
         const params = {
             ...(draftId ? { id: draftId } : {}),
             quoteId: customerData._id || undefined,
@@ -379,7 +390,9 @@ export const submitSubscriptionApplication = async (customerData, form, draftId)
             downPayment: form.downPaymentToReport || 0,
             balance: (customerData.finalBenefit || 0) - (form.downPaymentToReport || 0),
             conversionMode: form.conversionMode || '전액구독',
-            monthlyAmount: (form.conversionSubs && form.selectedAmount) ? form.conversionSubs[form.selectedAmount] : 0,
+            monthlyAmount: monthlyAmount,
+            transferDate: form.transferDate,
+            jobCategory: form.jobCategory === '직접입력' ? form.customJob : form.jobCategory,
             files: uploadedFiles,
             agreements: { ...form.agreements },
         };
@@ -407,6 +420,17 @@ export const getSubscriptionDraft = async (params) => {
 
 export const saveSubscriptionDraft = async (customerData, form) => {
     try {
+        // Calculate monthly amount for subscription (plus)
+        let monthlyAmount = 0;
+        if (form.isConversion && form.conversionAmount > 0 && form.selectedAmount) {
+            const amount = form.conversionAmount;
+            const years = form.selectedAmount / 12;
+            const customerRate = 0.02;
+            const customerInterest = Math.floor(amount * customerRate * years);
+            const totalPayment = amount + customerInterest;
+            monthlyAmount = Math.floor((totalPayment / form.selectedAmount) / 100) * 100;
+        }
+
         const params = {
             quoteId: customerData._id || undefined,
             name: customerData.name || "",
@@ -420,7 +444,9 @@ export const saveSubscriptionDraft = async (customerData, form) => {
             downPayment: form.downPaymentToReport || 0,
             balance: (customerData.finalBenefit || 0) - (form.downPaymentToReport || 0),
             conversionMode: form.conversionMode || '전액구독',
-            monthlyAmount: (form.conversionSubs && form.selectedAmount) ? form.conversionSubs[form.selectedAmount] : 0,
+            monthlyAmount: monthlyAmount,
+            transferDate: form.transferDate || "",
+            jobCategory: form.jobCategory === '직접입력' ? (form.customJob || "") : (form.jobCategory || ""),
             files: (form.files ? Object.entries(form.files).flatMap(([cat, files]) => 
                 files.filter(f => f.storageId).map(f => ({ category: cat, name: f.name, storageId: f.storageId }))
             ) : []),

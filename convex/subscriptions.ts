@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
+// Forcing sync of new validator fields (transferDate, jobCategory)
 export const submitApplication = mutation({
     args: {
         id: v.optional(v.id("subscription_applications")), // Optional ID for existing draft
@@ -18,6 +19,8 @@ export const submitApplication = mutation({
         balance: v.optional(v.number()),
         conversionMode: v.optional(v.string()),
         monthlyAmount: v.optional(v.number()),
+        transferDate: v.optional(v.string()),
+        jobCategory: v.optional(v.string()),
         files: v.array(v.object({
             category: v.string(),
             name: v.string(),
@@ -97,6 +100,8 @@ export const saveDraft = mutation({
         balance: v.optional(v.number()),
         conversionMode: v.optional(v.string()),
         monthlyAmount: v.optional(v.number()),
+        transferDate: v.optional(v.string()),
+        jobCategory: v.optional(v.string()),
         files: v.array(v.object({
             category: v.string(),
             name: v.string(),

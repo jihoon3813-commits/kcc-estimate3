@@ -130,7 +130,7 @@ const AdminPage = () => {
         const etcSupply = Number(selectedQuote.etcSupplyCost || (selectedQuote.totalEtc) || etcFromItems || 0);
         const kccPrice = matSupply + etcSupply;
 
-        const currentLumpSumRate = isEditingModal ? (modalEditData.discountRate || 0) : (selectedQuote.lumpSumDiscountRate || 6.0);
+        const currentLumpSumRate = isEditingModal ? (modalEditData.discountRate || 0) : (selectedQuote.lumpSumDiscountRate || selectedQuote.discountRate || 6.0);
         const currentAnnualRate = Number(selectedQuote.annualRate || 6.0);
         const currentInterestSupport = Number(selectedQuote.interestSupport || 4.0);
         const currentPrepaymentRates = selectedQuote.prepaymentRates || { 60: 20.46, 48: 16.92, 36: 14.12, 24: 13.16 };
@@ -139,9 +139,10 @@ const AdminPage = () => {
         const markupBase = matSupply * matMultiplier;
         const finalQuote = Math.floor((markupBase + etcSupply) / 100) * 100;
 
-        const lumpSumPrice = Math.floor(finalQuote * (1 - currentLumpSumRate / 100) / 100) * 100;
+        const currentExtraDiscount = isEditingModal ? (modalEditData.extraDiscount || 0) : (selectedQuote.extraDiscount || 0);
+        const lumpSumPrice = Math.floor((finalQuote * (1 - currentLumpSumRate / 100) - currentExtraDiscount) / 100) * 100;
         const lumpSumMargin = Number(lumpSumPrice - kccPrice) || 0;
-        const lumpSumMarginRate = Number(markupBase > 0 ? (lumpSumMargin / markupBase) * 100 : 0) || 0;
+        const lumpSumMarginRate = Number(finalQuote > 0 ? (lumpSumMargin / finalQuote) * 100 : 0) || 0;
 
         const greenPlus = [60, 48, 36, 24].map(month => {
             const years = month / 12;
@@ -156,7 +157,7 @@ const AdminPage = () => {
             const upfrontFee = Math.floor((totalPayment * (rate / 100)) / 10) * 10;
             const settlementAmount = Math.floor((totalPayment - upfrontFee) / 10) * 10;
             const margin = Math.floor((settlementAmount - kccPrice) / 10) * 10;
-            const marginRate = markupBase > 0 ? (margin / markupBase) * 100 : 0;
+            const marginRate = finalQuote > 0 ? (margin / finalQuote) * 100 : 0;
 
             return {
                 month,
@@ -278,11 +279,10 @@ const AdminPage = () => {
         let finalQuote = Math.floor((markupBase + etcSupplyCost) / 100) * 100;
 
         // 2. Lump Sum Analysis (Image 4)
-        const lumpSumPrice = Math.floor(finalQuote * (1 - lumpSumDiscountRate / 100) / 100) * 100;
+        const lumpSumPrice = Math.floor((finalQuote * (1 - lumpSumDiscountRate / 100) - extraDiscount) / 100) * 100;
         const totalSupplyCost = materialSupplyCost + etcSupplyCost;
         const lumpSumMargin = lumpSumPrice - totalSupplyCost;
-        // User: 마진율은 최종견적가를 기준으로 하지말고 공급가(자재비)x자재비(배수) 금액을 기준으로 해
-        const lumpSumMarginRate = markupBase > 0 ? (lumpSumMargin / markupBase) * 100 : 0;
+        const lumpSumMarginRate = finalQuote > 0 ? (lumpSumMargin / finalQuote) * 100 : 0;
 
         // 3. Green Remodeling PLUS (Image 3)
         const greenPlus = [60, 48, 36, 24].map(month => {
@@ -299,7 +299,7 @@ const AdminPage = () => {
             const upfrontFee = Math.floor((totalPayment * (rate / 100)) / 10) * 10;
             const settlementAmount = Math.floor((totalPayment - upfrontFee) / 10) * 10;
             const margin = Math.floor((settlementAmount - totalSupplyCost) / 10) * 10;
-            const marginRate = markupBase > 0 ? (margin / markupBase) * 100 : 0;
+            const marginRate = finalQuote > 0 ? (margin / finalQuote) * 100 : 0;
 
             return {
                 month,
@@ -1539,7 +1539,7 @@ const AdminPage = () => {
                                 <thead className="bg-[#2c3e50] text-white">
                                     <tr>
                                         {[
-                                            "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "소유", "할인가", "선납금", "잔금", "구분", "개월", "구독료", "서류"
+                                            "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "이체", "직군", "소유", "할인가", "선납금", "잔금", "구분", "개월", "구독료", "서류"
                                         ].map((th, i) => (
                                             <th key={i} className="px-2 py-3.5 font-black whitespace-nowrap text-[11px] uppercase tracking-tighter first:pl-6 last:pr-6 text-center">{th}</th>
                                         ))}
@@ -1548,7 +1548,7 @@ const AdminPage = () => {
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredRentalList.length === 0 ? (
                                         <tr>
-                                            <td colSpan="15" className="text-center py-20 text-gray-400 font-bold">렌탈 신청 내역이 없습니다.</td>
+                                            <td colSpan="17" className="text-center py-20 text-gray-400 font-bold">렌탈 신청 내역이 없습니다.</td>
                                         </tr>
                                     ) : (
                                         filteredRentalList.map((item, idx) => (
@@ -1570,6 +1570,8 @@ const AdminPage = () => {
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 font-mono text-[10px]">{item.phone}</td>
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.birthDate}</td>
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.gender === 'male' ? '남' : '여'}</td>
+                                                <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px] font-bold">{item.transferDate ? `${item.transferDate}${item.transferDate === '말일' ? '' : '일'}` : '-'}</td>
+                                                <td className="px-2 py-3.5 text-center text-gray-500 text-[9.5px] leading-tight min-w-[120px] font-medium">{item.jobCategory || '-'}</td>
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">
                                                     {item.ownershipType === 'own_own' ? '본인' : (item.ownershipType === 'family_own' ? '가족' : '이사')}
                                                 </td>
@@ -1604,7 +1606,7 @@ const AdminPage = () => {
                                                             >
                                                                 <FileText size={12} />
                                                                 <span className="text-[9px] font-black whitespace-nowrap">
-                                                                    {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : '기타')))}
+                                                                    {file.category === 'registry' ? '등기' : (file.category === 'contract' ? '계약' : (file.category === 'id_card' ? '신분증' : (file.category === 'family' ? '가족' : (file.category === 'bank_book' ? '통장' : (file.category === 'agreements' ? '동의서' : '기타')))))}
                                                                 </span>
                                                             </a>
                                                         ))}
@@ -1662,7 +1664,7 @@ const AdminPage = () => {
                                     <thead className="bg-[#1a3a3a] text-white">
                                         <tr>
                                             {[
-                                                "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "소유", "할인가", "선납금", "잔금", "구분", "개월", "구독료", "서류"
+                                                "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "이체", "직군", "소유", "할인가", "선납금", "잔금", "구분", "개월", "구독료", "서류"
                                             ].map((th, i) => (
                                                 <th key={i} className="px-2 py-3.5 font-black whitespace-nowrap text-[11px] uppercase tracking-tighter first:pl-6 last:pr-6 text-center">{th}</th>
                                             ))}
@@ -1671,7 +1673,7 @@ const AdminPage = () => {
                                     <tbody className="divide-y divide-gray-100">
                                         {filteredSubscriptionList.length === 0 ? (
                                             <tr>
-                                                <td colSpan="15" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
+                                                <td colSpan="17" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
                                             </tr>
                                         ) : (
                                             filteredSubscriptionList.map((item, idx) => (
@@ -1693,6 +1695,8 @@ const AdminPage = () => {
                                                     <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 font-mono text-[10px]">{item.phone}</td>
                                                     <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.birthDate}</td>
                                                     <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.gender === 'male' ? '남' : '여'}</td>
+                                                    <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px] font-bold">{item.transferDate ? `${item.transferDate}${item.transferDate === '말일' ? '' : '일'}` : '-'}</td>
+                                                    <td className="px-2 py-3.5 text-center text-gray-500 text-[9.5px] leading-tight min-w-[120px] font-medium">{item.jobCategory || '-'}</td>
                                                     <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">
                                                         {item.ownershipType === 'own_own' ? '본인' : (item.ownershipType === 'family_own' ? '가족' : '이사')}
                                                     </td>

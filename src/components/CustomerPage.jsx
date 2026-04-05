@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, User, Phone, MapPin, Download, Gift, ShieldCheck, ChevronRight, MessageCircle, ExternalLink, X, Calendar, CheckCircle2, CheckCircle, Loader2, Upload, Calculator, ArrowRightLeft, Wallet, Clock, Sparkles, Crown, PartyPopper } from 'lucide-react';
 import { searchQuote, submitRentalApplication, submitSubscriptionApplication, getRentalDraft, saveRentalDraft, getSubscriptionDraft, saveSubscriptionDraft, uploadSingleFile } from '../lib/api';
-
+import SignatureCanvas from 'react-signature-canvas';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 const CustomerPage = () => {
     // === ANIMATION STYLES ===
     const rotatingBorderStyle = (
@@ -172,7 +174,8 @@ const CustomerPage = () => {
             contract: [],
             family: [],
             id_card: [],
-            bank_book: []
+            bank_book: [],
+            agreements: []
         },
         isConversion: false,
         conversionSubs: null,
@@ -184,6 +187,69 @@ const CustomerPage = () => {
             agree3: false
         }
     });
+
+    const signatureRef = React.useRef(null);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+    const generateAgreementPDF = async () => {
+        if (!signatureRef.current || signatureRef.current.isEmpty()) {
+            return null;
+        }
+
+        const signatureDataUrl = signatureRef.current.getCanvas().toDataURL('image/png');
+        
+        const originalCanvas = signatureRef.current.getCanvas();
+        if (!originalCanvas) return null;
+        
+        const pdfContainer = document.getElementById('pdf-agreement-container');
+        if (!pdfContainer) return null;
+        
+        pdfContainer.style.display = 'block';
+
+        // Use native canvas cloning instead of img tags to natively bypass html2canvas image loading bugs
+        const signatureDivs = pdfContainer.querySelectorAll('.signature-container');
+        signatureDivs.forEach(div => {
+            div.innerHTML = ''; // clear previous
+            const clonedCanvas = document.createElement('canvas');
+            clonedCanvas.width = originalCanvas.width;
+            clonedCanvas.height = originalCanvas.height;
+            const ctx = clonedCanvas.getContext('2d');
+            ctx.drawImage(originalCanvas, 0, 0);
+            clonedCanvas.style.width = '100%';
+            clonedCanvas.style.height = '100%';
+            div.appendChild(clonedCanvas);
+        });
+
+        // Small delay to ensure browser paints the cloned canvases
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const A4_WIDTH_MM = 210;
+        const A4_HEIGHT_MM = 297;
+
+        try {
+            for (let i = 1; i <= 4; i++) {
+                const pageElement = document.getElementById(`agreement-page-${i}`);
+                if (!pageElement) continue;
+
+                const canvas = await html2canvas(pageElement, { scale: 2, useCORS: true });
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+                if (i > 1) pdf.addPage();
+                
+                pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+            }
+
+            const pdfBlob = pdf.output('blob');
+            const file = new File([pdfBlob], `${data?.name || '고객'}_동의서.pdf`, { type: 'application/pdf' });
+            return file;
+        } catch (error) {
+            console.error("PDF generation failed:", error);
+            return null;
+        } finally {
+            pdfContainer.style.display = 'none';
+        }
+    };
 
     // Lock body scroll when modal is open
 
@@ -789,10 +855,11 @@ const CustomerPage = () => {
                                                     downPaymentToReport: plusCalc?.downPayment
                                                 }));
                                             }}
-                                            className="w-full py-5 bg-gradient-to-r from-[#001a3d] to-[#003366] text-white text-base font-black rounded-xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/10 relative overflow-hidden group"
+                                            className="w-full py-5 text-[#001a3d] text-lg font-black rounded-xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-2 relative overflow-hidden group"
+                                            style={{ background: 'linear-gradient(to right, #c5a059, #d4af37)' }}
                                         >
-                                            <div className="absolute top-0 -inset-full h-full w-full z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent via-[#c5a059]/40 to-transparent animate-gold-sweep opacity-80"></div>
-                                            <span className="relative z-10">PLUS 혜택 신청하기</span>
+                                            <div className="absolute top-0 -inset-full h-full w-full z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-gold-sweep opacity-80"></div>
+                                            <span className="relative z-10">이자지원 신청하기</span>
                                             <ArrowRightLeft size={16} className="relative z-10 transition-transform duration-500 group-hover:rotate-180" />
                                         </button>
                                     </div>
@@ -897,7 +964,60 @@ const CustomerPage = () => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-6">
-                        {/* 구독 PLUS 서비스 */}
+                        {/* 특별 무상 서비스 - Centered and Pink Spinning Border */}
+                        <div className="pink-spin-border shadow-2xl relative">
+                            <div className="p-6 md:p-14 space-y-8 relative z-10">
+                                {/* Festive background elements */}
+                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/5 rounded-full blur-3xl group-hover:bg-pink-500/10 transition-colors"></div>
+                                
+                                <div className="flex flex-col items-center text-center space-y-4 relative z-10">
+                                    <div className="inline-flex items-center justify-center w-16 h-16 bg-[#c5a059] text-white rounded-2xl shadow-lg shadow-[#c5a059]/30 mb-2 relative">
+                                        <Gift size={32} />
+                                        <Sparkles size={20} className="absolute -top-2 -right-2 text-pink-400 animate-pulse" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h4 className="text-2xl md:text-4xl font-black text-[#001a3d] tracking-tighter flex items-center justify-center gap-2">
+                                            <Sparkles size={24} className="text-pink-500 hidden md:block" />
+                                            특별 무상 서비스
+                                            <Sparkles size={24} className="text-pink-500 hidden md:block" />
+                                        </h4>
+                                        <p className="text-pink-500 text-xs font-black uppercase tracking-widest opacity-80">Premium Benefit Celebration</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+                                    <div className="bg-[#fcf8f0] p-6 md:p-8 rounded-[2rem] flex flex-col items-center md:flex-row text-center md:text-left gap-4 md:gap-8 border-2 border-white shadow-sm hover:border-pink-200 transition-all group/item overflow-hidden relative">
+                                        <div className="absolute inset-0 bg-pink-50/40 translate-y-full group-hover/item:translate-y-0 transition-transform duration-500"></div>
+                                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white shadow-lg rounded-[1.25rem] flex items-center justify-center text-[#c5a059] shrink-0 border border-pink-100 relative z-10">
+                                            <ShieldCheck size={30} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <p className="text-[10px] md:text-[11px] font-black text-pink-500 uppercase tracking-[0.2em] mb-1.5 opacity-90">Upgrade Option 01</p>
+                                            <p className="text-lg md:text-xl font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
+                                                고성능 더블로이유리<br className="hidden md:block" /> 무상 업그레이드
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-[#fcf8f0] p-6 md:p-8 rounded-[2rem] flex flex-col items-center md:flex-row text-center md:text-left gap-4 md:gap-8 border-2 border-white shadow-sm hover:border-pink-200 transition-all group/item overflow-hidden relative">
+                                        <div className="absolute inset-0 bg-pink-50/40 translate-y-full group-hover/item:translate-y-0 transition-transform duration-500"></div>
+                                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white shadow-lg rounded-[1.25rem] flex items-center justify-center text-[#c5a059] shrink-0 border border-pink-100 relative z-10">
+                                            <PartyPopper size={30} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <p className="text-[10px] md:text-[11px] font-black text-pink-500 uppercase tracking-[0.2em] mb-1.5 opacity-90">Upgrade Option 02</p>
+                                            <p className="text-lg md:text-xl font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
+                                                최고급 블랙 STS<br className="hidden md:block" /> 방충망 전면 교체
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Decorative particles */}
+                                <div className="absolute top-4 left-1/4 w-1 h-1 bg-pink-400 rounded-full animate-ping opacity-70"></div>
+                                <div className="absolute bottom-10 right-1/4 w-1.5 h-1.5 bg-pink-500 rounded-full animate-ping opacity-50 delay-700"></div>
+                            </div>
+                        </div>
+{/* 구독 PLUS 서비스 */}
                         <div className="purple-premium-gradient p-8 md:p-14 text-white relative overflow-hidden shadow-2xl flex flex-col justify-between rounded-2xl">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-4xl"></div>
                             <div className="relative z-10 space-y-12">
@@ -959,57 +1079,72 @@ const CustomerPage = () => {
                             </div>
                         </div>
 
-                        {/* 특별 무상 서비스 - Centered and Pink Spinning Border */}
-                        <div className="pink-spin-border shadow-2xl relative">
-                            <div className="p-6 md:p-14 space-y-8 relative z-10">
-                                {/* Festive background elements */}
-                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/5 rounded-full blur-3xl group-hover:bg-pink-500/10 transition-colors"></div>
-                                
-                                <div className="flex flex-col items-center text-center space-y-4 relative z-10">
-                                    <div className="inline-flex items-center justify-center w-16 h-16 bg-[#c5a059] text-white rounded-2xl shadow-lg shadow-[#c5a059]/30 mb-2 relative">
-                                        <Gift size={32} />
-                                        <Sparkles size={20} className="absolute -top-2 -right-2 text-pink-400 animate-pulse" />
+                        {/* 신규 주방 섹션 */}
+                        <div className="relative rounded-[2rem] overflow-hidden shadow-2xl group min-h-[480px] flex items-center">
+                            {/* 배경 이미지 - PC용 */}
+                            <div 
+                                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105 hidden md:block"
+                                style={{ 
+                                    backgroundImage: 'url("https://res.cloudinary.com/dx7l09wwu/image/upload/v1775396662/%EC%97%B0%EC%B6%9C_2_a29bia.jpg")',
+                                    backgroundSize: 'cover'
+                                }}
+                            ></div>
+                            {/* 배경 이미지 - 모바일용 */}
+                            <div 
+                                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105 md:hidden"
+                                style={{ 
+                                    backgroundImage: 'url("https://res.cloudinary.com/dx7l09wwu/image/upload/v1775396911/%EC%97%B0%EC%B6%9C_3_l0zfje.jpg")',
+                                    backgroundSize: 'cover'
+                                }}
+                            ></div>
+                            
+                            {/* 더 진한 오버레이 */}
+                            <div className="absolute inset-0 bg-black/60 md:bg-gradient-to-r md:from-black/80 md:via-black/50 md:to-black/30"></div>
+                            
+                            <div className="relative z-10 p-8 md:p-14 w-full text-white space-y-8">
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="bg-[#c5a059] text-[#001a3d] text-[10px] font-black px-2 py-0.5 rounded-md animate-pulse">NEW</span>
+                                        <span className="text-[#c5a059] text-[10px] md:text-xs font-black tracking-widest uppercase">Prestige Kitchen Collection</span>
                                     </div>
-                                    <div className="space-y-1">
-                                        <h4 className="text-2xl md:text-4xl font-black text-[#001a3d] tracking-tighter flex items-center justify-center gap-2">
-                                            <Sparkles size={24} className="text-pink-500 hidden md:block" />
-                                            특별 무상 서비스
-                                            <Sparkles size={24} className="text-pink-500 hidden md:block" />
-                                        </h4>
-                                        <p className="text-pink-500 text-xs font-black uppercase tracking-widest opacity-80">Premium Benefit Celebration</p>
-                                    </div>
+                                    <h3 className="text-2xl md:text-4xl font-black leading-tight tracking-tighter break-keep">
+                                        혹시 주방도 고민 중이신가요?
+                                    </h3>
+                                    <p className="text-sm md:text-lg font-bold text-white/90 leading-relaxed break-keep">
+                                        창호 名家, KCC글라스가 만든<br />
+                                        프리미엄 맞춤 주방이 출시 되었습니다!
+                                    </p>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-                                    <div className="bg-[#fcf8f0] p-6 md:p-8 rounded-[2rem] flex flex-col items-center md:flex-row text-center md:text-left gap-4 md:gap-8 border-2 border-white shadow-sm hover:border-pink-200 transition-all group/item overflow-hidden relative">
-                                        <div className="absolute inset-0 bg-pink-50/40 translate-y-full group-hover/item:translate-y-0 transition-transform duration-500"></div>
-                                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white shadow-lg rounded-[1.25rem] flex items-center justify-center text-[#c5a059] shrink-0 border border-pink-100 relative z-10">
-                                            <ShieldCheck size={30} />
+                                {/* 그리드: 모바일 1줄(1x4), PC 2줄(2x2) */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl">
+                                    {[
+                                        { text: '최저가 맞춤 시공', icon: <CheckCircle2 size={16} /> },
+                                        { text: '본사 A/S 보장', icon: <ShieldCheck size={16} /> },
+                                        { text: '60개월 할부 지원', icon: <Clock size={16} /> },
+                                        { text: 'LG빌트인 가전할인', icon: <Sparkles size={16} /> }
+                                    ].map((benefit, i) => (
+                                        <div key={i} className="bg-black/50 backdrop-blur-md border border-white/10 px-5 py-4 rounded-2xl flex items-center gap-3 text-xs md:text-sm font-black text-white shadow-xl group/item hover:bg-white/10 transition-colors">
+                                            <span className="text-[#c5a059] bg-[#c5a059]/10 p-2 rounded-lg">{benefit.icon}</span>
+                                            {benefit.text}
                                         </div>
-                                        <div className="relative z-10">
-                                            <p className="text-[10px] md:text-[11px] font-black text-pink-500 uppercase tracking-[0.2em] mb-1.5 opacity-90">Upgrade Option 01</p>
-                                            <p className="text-lg md:text-xl font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
-                                                고성능 더블로이유리<br className="hidden md:block" /> 무상 업그레이드
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-[#fcf8f0] p-6 md:p-8 rounded-[2rem] flex flex-col items-center md:flex-row text-center md:text-left gap-4 md:gap-8 border-2 border-white shadow-sm hover:border-pink-200 transition-all group/item overflow-hidden relative">
-                                        <div className="absolute inset-0 bg-pink-50/40 translate-y-full group-hover/item:translate-y-0 transition-transform duration-500"></div>
-                                        <div className="w-14 h-14 md:w-16 md:h-16 bg-white shadow-lg rounded-[1.25rem] flex items-center justify-center text-[#c5a059] shrink-0 border border-pink-100 relative z-10">
-                                            <PartyPopper size={30} />
-                                        </div>
-                                        <div className="relative z-10">
-                                            <p className="text-[10px] md:text-[11px] font-black text-pink-500 uppercase tracking-[0.2em] mb-1.5 opacity-90">Upgrade Option 02</p>
-                                            <p className="text-lg md:text-xl font-black text-[#2c3e50] tracking-tight leading-tight md:leading-snug break-keep">
-                                                최고급 블랙 STS<br className="hidden md:block" /> 방충망 전면 교체
-                                            </p>
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
-                                
-                                {/* Decorative particles */}
-                                <div className="absolute top-4 left-1/4 w-1 h-1 bg-pink-400 rounded-full animate-ping opacity-70"></div>
-                                <div className="absolute bottom-10 right-1/4 w-1.5 h-1.5 bg-pink-500 rounded-full animate-ping opacity-50 delay-700"></div>
+
+                                <div className="pt-4 space-y-4">
+                                    <a 
+                                        href="https://kcchomecc-partner.com/products/hline2"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-3 bg-[#c5a059] hover:bg-[#d4af37] text-[#001a3d] px-8 py-4 rounded-2xl font-black text-sm md:text-base shadow-2xl transition-all hover:scale-105 active:scale-95 group/btn"
+                                    >
+                                        프리미엄 주방 자세히 보기
+                                        <ExternalLink size={18} className="transition-transform group-hover/btn:translate-x-1" />
+                                    </a>
+                                    <p className="text-[10px] md:text-xs font-bold text-white/60 pl-1">
+                                        ※ 자세한 내용은 상담원에게 문의해 주세요.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1808,6 +1943,31 @@ const CustomerPage = () => {
                                                         • 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름
                                                     </div>
                                                 </div>
+
+                                                <div className="p-4 bg-blue-50/50 rounded-2xl mt-6 border border-blue-100/50">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <ShieldCheck className="w-4 h-4 text-blue-600" />
+                                                        <span className="text-sm font-black text-[#001a3d]">전자 서명 <span className="text-red-500">*</span></span>
+                                                    </div>
+                                                    <p className="text-[11px] text-gray-500 font-bold px-1 mb-2 tracking-tight">위에 정자로 서명해주세요. 입력하신 서명은 정보동의서에 자동 표기됩니다.</p>
+                                                    <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl relative w-full h-[150px] overflow-hidden">
+                                                        <SignatureCanvas
+                                                            ref={signatureRef}
+                                                            penColor="#001a3d"
+                                                            canvasProps={{ className: "w-full h-full cursor-crosshair" }}
+                                                            onEnd={() => setRentalForm(prev => ({ ...prev }))}
+                                                        />
+                                                        <button 
+                                                            onClick={() => {
+                                                                signatureRef.current?.clear();
+                                                                setRentalForm(prev => ({ ...prev }));
+                                                            }}
+                                                            className="absolute top-3 right-3 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-black hover:bg-gray-200 transition-colors border border-gray-200"
+                                                        >
+                                                            다시 쓰기
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -1845,7 +2005,7 @@ const CustomerPage = () => {
                                             return allFiles.length === 0;
                                         }
                                         if (rentalStep === 4) {
-                                            return !rentalForm.agreements.agree1 || !rentalForm.agreements.agree2 || !rentalForm.agreements.agree3;
+                                            return !rentalForm.agreements.agree1 || !rentalForm.agreements.agree2 || !rentalForm.agreements.agree3 || (!signatureRef.current || signatureRef.current.isEmpty());
                                         }
                                         return false;
                                     })()}
@@ -1858,19 +2018,39 @@ const CustomerPage = () => {
                                                 '렌탈 신청을 완료하시겠습니까?\n제출된 정보로 신용조회가 진행됩니다.',
                                                 async () => {
                                                     setIsSubmitting(true);
-                                                    const res = await submitRentalApplication(data, rentalForm, draftId);
-                                                    setIsSubmitting(false);
+                                                    try {
+                                                        let updatedForm = { ...rentalForm };
+                                                        const pdfFile = await generateAgreementPDF();
+                                                        if (pdfFile) {
+                                                            const storageId = await uploadSingleFile(pdfFile);
+                                                            if (storageId) {
+                                                                if (!updatedForm.files.agreements) updatedForm.files.agreements = [];
+                                                                updatedForm.files.agreements.push({
+                                                                    name: pdfFile.name,
+                                                                    storageId: storageId,
+                                                                    category: 'agreements'
+                                                                });
+                                                            }
+                                                        }
 
-                                                    if (res.success) {
-                                                        showAlert(
-                                                            `렌탈 신청이 정상적으로 완료되었습니다.\n신청 가능 여부를 확인한 후 담당자를 통해 연락드리겠습니다.\n감사합니다.(1~2일 소요)`,
-                                                            '신청 완료'
-                                                        );
-                                                        setIsRentalMode(false);
-                                                        setApplicationType(null);
-                                                        setRentalStep(1);
-                                                    } else {
-                                                        showAlert("신청 중 오류가 발생했습니다: " + res.message, "오류");
+                                                        const res = await submitRentalApplication(data, updatedForm, draftId);
+
+                                                        if (res.success) {
+                                                            showAlert(
+                                                                `렌탈 신청이 정상적으로 완료되었습니다.\n신청 가능 여부를 확인한 후 담당자를 통해 연락드리겠습니다.\n감사합니다.(1~2일 소요)`,
+                                                                '신청 완료'
+                                                            );
+                                                            setIsRentalMode(false);
+                                                            setApplicationType(null);
+                                                            setRentalStep(1);
+                                                        } else {
+                                                            showAlert("신청 중 오류가 발생했습니다: " + res.message, "오류");
+                                                        }
+                                                    } catch (error) {
+                                                        console.error("Submission failed:", error);
+                                                        showAlert("신청 처리 중 오류가 발생했습니다. 다시 시도해주세요.", "오류");
+                                                    } finally {
+                                                        setIsSubmitting(false);
                                                     }
                                                 }
                                             );
@@ -1929,6 +2109,242 @@ const CustomerPage = () => {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Hidden PDF Agreement Container */}
+            {data && (
+                <div id="pdf-agreement-container" style={{ position: 'absolute', top: '-10000px', left: '-10000px', width: '794px', zIndex: -1000, display: 'none' }}>
+                    
+                    {/* PDF PAGE 1 */}
+                    <div id="agreement-page-1" className="w-[794px] h-[1123px] bg-white p-12 flex flex-col relative box-border text-[13px] leading-[1.6]">
+                        <div className="border border-black flex-1 flex flex-col p-8">
+                            <h1 className="text-center text-xl font-black bg-gray-100 py-3 mb-8 border border-black absolute top-[48px] left-[48px] right-[48px]">개인(신용)정보 수집 이용 동의서</h1>
+                            <div className="mt-16 font-black text-sm">(주)비에스온 귀하</div>
+                            <div className="mt-4 text-[12px] leading-[1.6]">귀사와의 상거래와 관련하여 귀사가 본인의 개인(신용)정보를 수집·이용하고자 하는 경우에는 「개인 정보 보호법」 제15조 및 제22조, 「신용정보의 이용 및 보호에 관한 법률」 제32조, 제33조 및 제34조에 따라 동의를 얻어야 합니다. 이에 본인은 귀사가 아래의 내용과 같이 본인의 개인(신용)정보를 수집·이용하는데 동의합니다.</div>
+                            
+                            <div className="mt-6 font-black">1. 개인(신용)정보의 필수적 수집 · 이용에 관한 사항</div>
+                            <div className="mt-4">
+                                <div className="font-bold">1 개인(신용)정보의 수집 · 이용 목적</div>
+                                <div className="pl-2">- 상거래 관계의 설정·이행·유지·관리, 법령상 의무이행, 분쟁처리, 민원처리, 본인여부확인 등</div>
+                                <div className="font-bold mt-2">2 수집·이용할 개인(신용)정보의 내용</div>
+                                <div className="pl-2 text-red-500">- 개인식별정보 : 성명, 주소, 연락처, E-mail, 출생등록지, 성별, 국적, 본인인증정보, 기타 식별정보 등</div>
+                                <div className="pl-2 text-red-500">- 기타 계약의 설정·이행·유지·관리 등과 관련하여 본인이 제공한 정보 등</div>
+                                <div className="font-bold mt-2">3 개인(신용)정보의 보유 및 이용기간</div>
+                                <div className="pl-2">- 동의일로부터 개인(신용)정보의 수집·이용 목적을 달성할 때까지</div>
+                                <div className="pl-2">- 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름</div>
+                                <div className="mt-2 text-[12px] text-gray-500">※ 귀하는 동의를 거부할 권리가 있으나, 동의하지 않는 경우 계약의 설정·이행·유지·관리 등이 불가능할 수 있음을 알려드립니다.</div>
+                            </div>
+
+                            <div className="mt-6 font-black">2. 개인(신용)정보의 선택적 수집 · 이용에 관한 사항 (동의함 [V] 동의하지 않음 [  ])</div>
+                            <div className="mt-4">
+                                <div className="font-bold">1 개인(신용)정보의 수집 · 이용 목적</div>
+                                <div className="pl-2 text-red-500">- 고객 편의제공, 상품·서비스 안내 및 이용권유, 마케팅 활동, 시장조사 등</div>
+                                <div className="font-bold mt-2">2 수집·이용할 개인(신용)정보의 내용</div>
+                                <div className="pl-2 text-red-500">- 상기 이용목적 달성을 위하여 필요한 정보 (개인식별정보, 신용거래정보 등)</div>
+                                <div className="pl-2 text-red-500">- 기타 계약의 설정·이행·유지·관리 등과 관련하여 본인이 제공한 정보 등</div>
+                                <div className="font-bold mt-2">3 개인(신용)정보의 보유 및 이용기간</div>
+                                <div className="pl-2">- 동의일로부터 개인(신용)정보의 수집·이용 목적을 달성할 때까지</div>
+                                <div className="pl-2">- 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름</div>
+                                <div className="mt-2 text-[12px] text-gray-500">※ 귀하는 동의를 거부할 권리가 있으나, 동의하지 않는 경우 관련 편의제공(사은품, 할인쿠폰 제공 등에 일부 제한이 있을 수 있습니다.<br/>※ 동의한 경우에도 귀하는 동의를 철회하거나 마케팅 목적으로 귀하에게 연락하는 것을 중지하도록 요청할 수 있습니다.</div>
+                            </div>
+                        </div>
+                        {/* FOOTER BLOCK */}
+                        <div className="border border-black mt-2 p-6 flex-shrink-0 relative">
+                            <p className="text-red-500 text-center font-bold mb-4">상기 내용이 변동하는 경우 당사의 인터넷 홈페이지 게시 등을 통해 그 내용을 공시합니다.</p>
+                            <div className="flex justify-between items-center text-sm font-bold">
+                                <div className="pl-4 text-base tracking-widest">{new Date().getFullYear()} 년 {(new Date().getMonth() + 1).toString().padStart(2, '0')} 월 {new Date().getDate().toString().padStart(2, '0')} 일</div>
+                                <div>
+                                    <div className="flex justify-between w-[350px] mb-2 relative">
+                                        <div className="flex gap-4 items-center">
+                                            <span>본인 성명 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{data?.name || ''}</span>
+                                        </div>
+                                        <div className="flex gap-2 items-end relative">
+                                            <span>(서명/날인)</span>
+                                            <div className="w-24 border-b border-gray-400 pb-1 relative h-6">
+                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-100px', bottom: '-20px' }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between w-[350px]">
+                                        <div className="flex gap-4 items-center">
+                                            <span>연락처 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{searchForm.phone}</span>
+                                        </div>
+                                        <div className="flex gap-4 items-center">
+                                            <span>생년월일 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{rentalForm.birthDate?.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* PDF PAGE 2 */}
+                    <div id="agreement-page-2" className="w-[794px] h-[1123px] bg-white p-12 flex flex-col relative box-border text-[13px] leading-[1.6]">
+                        <div className="border border-black flex-1 flex flex-col p-8">
+                            <h1 className="text-center text-xl font-black bg-gray-100 py-3 mb-8 border border-black absolute top-[48px] left-[48px] right-[48px]">개인(신용)정보의 조회 동의서</h1>
+                            <div className="mt-16 font-black text-sm">(주)비에스온 귀하</div>
+                            <div className="mt-4 text-[12px] leading-[1.6]">본인은 귀사가 「신용정보의 이용 및 보호에 관한 법률」 제32조 제2항에 따라 아래와 같은 내용으로 신용조회회사, 신용정보집중기관 등으로부터 본인의 개인(신용)정보를 조회하는 것에 동의합니다.</div>
+                            
+                            <div className="mt-6 font-black">1. 조회 대상 기관</div>
+                            <div className="pl-2">- 종합신용정보집중기관 : 한국신용정보원, 여신금융협회 등</div>
+                            <div className="pl-2">- 신용조회회사 : 코리아크레딧뷰로(주), NICE평가정보(주)</div>
+                            
+                            <div className="mt-6 font-black">2. 조회할 개인(신용)정보</div>
+                            <div className="pl-2">- 개인식별정보 : 성명, 주소, 연락처(휴대폰 등), E-mail, 성별, 국적, 본인인증 및 식별정보 등</div>
+                            <div className="pl-2">- 신용거래정보 : 대출, 보증, 담보제공, 당좌거래, 신용카드, 할부금융과 관련한 금융거래 등 상거래와 관련하여 그 거래의 종류, 기간, 금액 및 한도 등에 관한 사항</div>
+                            <div className="pl-2">- 신용도판단정보 : 연체, 부도, 대위변제, 대지급, 신용질서 문란행위와 관련된 금액 및 발생 · 해소의 시기 등에 관한 사항</div>
+                            <div className="pl-2">- 신용능력정보 : 직업, 재산, 채무, 소득의 총액, 납세실적 등 신용거래능력을 판단할 수 있는 정보</div>
+                            <div className="pl-2">- 공공기관정보 : 개인회생, 파산, 면책 등에 관한 신청 및 법원의 결정 관련정보, 채무불이행자명부 등재·말소 결정, 체납정보, 신용회복관련정보 등</div>
+                            <div className="pl-2">- 신용평가정보 : 신용등급, 신용평점 등</div>
+                            <div className="pl-2">- 기타 본인의 신용을 판단할 수 있는 정보 등</div>
+
+                            <div className="mt-6 font-black">3. 조회목적</div>
+                            <div className="pl-2">- 상거래 관계의 설정·이행·유지·관리, 법령상 의무이행, 분쟁처리, 민원처리, 본인여부확인 등</div>
+
+                            <div className="mt-6 font-black">4. 조회동의 효력기간</div>
+                            <div className="pl-2">- 동의일로부터 당해 계약의 종료일(예 : 기간만기, 계약해지 등) 또는 동의철회 시 까지 동의의 효력이 유지 됨</div>
+                            <div className="pl-2">- 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따르며, 귀하가 신청한 계약이 체결되지 아니한 경우에는 그 시점부터 동의의 효력은 소멸합니다.</div>
+
+                            <div className="mt-6 font-black">5. 조회자의 개인(신용)정보의 보유 및 이용기간</div>
+                            <div className="pl-2">- 개인(신용)정보를 제공받는 날로부터 조회목적을 달성할 때까지</div>
+                            <div className="pl-2">- 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름</div>
+
+                            <div className="mt-2 text-[11px] text-gray-500 font-bold mt-8">※ 귀하는 동의를 거부할 권리가 있으나, 동의하지 않는 경우 계약의 설정·이행·유지·관리 등이 불가능할 수 있음을 알려드립니다.</div>
+                            <div className="text-[11px] text-gray-500 font-bold mt-1">※ 신용조회기록은 무등급자에 대한 신용등급산정 이외에는 신용등급에 영향을 미치지 않습니다.</div>
+                        </div>
+                        {/* FOOTER BLOCK */}
+                        <div className="border border-black mt-2 p-6 flex-shrink-0 relative">
+                            <p className="text-red-500 text-center font-bold mb-4">상기 내용이 변동하는 경우 당사의 인터넷 홈페이지 게시 등을 통해 그 내용을 공시합니다.</p>
+                            <div className="flex justify-between items-center text-sm font-bold">
+                                <div className="pl-4 text-base tracking-widest">{new Date().getFullYear()} 년 {(new Date().getMonth() + 1).toString().padStart(2, '0')} 월 {new Date().getDate().toString().padStart(2, '0')} 일</div>
+                                <div>
+                                    <div className="flex justify-between w-[350px] mb-2 relative">
+                                        <div className="flex gap-4 items-center">
+                                            <span>본인 성명 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{data?.name || ''}</span>
+                                        </div>
+                                        <div className="flex gap-2 items-end relative">
+                                            <span>(서명/날인)</span>
+                                            <div className="w-24 border-b border-gray-400 pb-1 relative h-6">
+                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-100px', bottom: '-20px' }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between w-[350px]">
+                                        <div className="flex gap-4 items-center">
+                                            <span>연락처 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{searchForm.phone}</span>
+                                        </div>
+                                        <div className="flex gap-4 items-center">
+                                            <span>생년월일 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{rentalForm.birthDate?.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* PDF PAGE 3 */}
+                    <div id="agreement-page-3" className="w-[794px] h-[1123px] bg-white p-12 flex flex-col relative box-border text-[13px] leading-[1.6]">
+                        <div className="border border-black flex-1 flex flex-col p-8">
+                            <h1 className="text-center text-xl font-black bg-gray-100 py-3 mb-8 border border-black absolute top-[48px] left-[48px] right-[48px]">개인(신용)정보 제공 동의서 [1/2]</h1>
+                            <div className="mt-16 font-black text-sm">(주)비에스온 귀하</div>
+                            <div className="mt-4 text-[12px] leading-[1.6]">귀사와의 상거래와 관련하여 귀사가 본인의 개인(신용)정보를 「개인정보 보호법」 제17조 및 제22조, 「신용정보의 이용 및 보호에 관한 법률」 제32조, 제33조 및 제34조에 따라 제3자에게 제공할 경우 본인의 동의를 얻어야 합니다. 이에 본인은 귀사가 본인의 개인(신용)정보를 아래와 같이 제3자에게 제공하는데 동의합니다.</div>
+                            
+                            <div className="mt-6 font-black">1. 개인(신용)정보의 필수적 제공에 관한 사항</div>
+                            <div className="mt-4">
+                                <div className="font-bold">(1) 신용정보집중기관 및 신용조회회사에 개인(신용)정보 제공</div>
+                                <div className="font-bold mt-2">1) 개인(신용)정보를 제공받는 자</div>
+                                <div className="pl-2">- 종합신용정보집중기관 : 한국신용정보원, 여신금융협회 등</div>
+                                <div className="pl-2">- 신용조회회사 : 코리아크레딧뷰로(주), NICE평가정보(주)</div>
+                                <div className="font-bold mt-2">2) 제공받는 자의 이용 목적</div>
+                                <div className="pl-2">- 신용정보의 집중·관리 및 활용 등 신용정보집중기관의 업무</div>
+                                <div className="pl-2">- 본인의 신용판단 자료 및 공공기관 정책자료로 활용</div>
+                                <div className="pl-2">- 신용평가, 실명확인 등 신용조회회사의 업무</div>
+                                <div className="font-bold mt-2">3) 제공할 개인(신용)정보의 내용</div>
+                                <div className="pl-2">- 개인식별정보 : 성명, 주소, 연락처(휴대폰 등), E-mail, 성별, 국적, 본인인증 및 식별정보 등</div>
+                                <div className="pl-2">- 기타 본인의 신용을 판단할 수 있는 정보 등</div>
+                                <div className="font-bold mt-2">4) 제공받는 자의 개인(신용)정보 보유 및 이용기간</div>
+                                <div className="pl-2">- 개인(신용)정보를 제공받는 자의 이용목적을 달성할 때까지</div>
+                                <div className="pl-2">- 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름</div>
+
+                                <div className="font-bold mt-6">(2) 거래목적 달성을 위한 개인(신용)정보 제공</div>
+                                <div className="font-bold mt-2">1) 개인(신용)정보를 제공받는 자</div>
+                                <div className="pl-2 text-red-500 font-bold">- 계약 이행에 필요한 업무를 위탁받은 자 및 공동사업자 등</div>
+                                <div className="pl-2 text-red-500 font-bold">- 부가/제휴서비스를 제공하기 위해 필요한 부가/제휴서비스 업체 등</div>
+                                <div className="font-bold mt-2">2) 제공받는 자의 이용목적</div>
+                                <div className="pl-2 text-red-500 font-bold">- 상거래의 설정·이행·유지·관리, 금융사고 조사, 법령상 의무이행, 분쟁해결, 범죄의 고소·고발, 대금청구(SMS제공포함) 및 채권추심 등</div>
+                                <div className="font-bold mt-2">3) 제공할 개인(신용)정보의 내용</div>
+                                <div className="pl-2">- 개인식별정보 : 성명, 주소, 연락처(휴대폰 등), E-mail, 성별, 국적, 본인인증 및 식별정보 등</div>
+                                <div className="pl-2">- 기타 본인의 신용을 판단할 수 있는 정보 등</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* PDF PAGE 4 */}
+                    <div id="agreement-page-4" className="w-[794px] h-[1123px] bg-white p-12 flex flex-col relative box-border text-[13px] leading-[1.6]">
+                        <div className="border border-black flex-1 flex flex-col p-8">
+                            <h1 className="text-center text-xl font-black bg-gray-100 py-3 mb-8 border border-black absolute top-[48px] left-[48px] right-[48px]">개인(신용)정보 제공 동의서 [2/2]</h1>
+                            <div className="mt-16">
+                                <div className="font-bold">4 제공받는 자의 개인(신용)정보 보유 및 이용기간</div>
+                                <div className="pl-2">- 개인(신용)정보를 제공받는 자의 이용목적을 달성할 때까지</div>
+                                <div className="pl-2">- 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름</div>
+                                <div className="mt-2 text-[12px] text-gray-500">※ 귀하는 동의를 거부할 권리가 있으나, 동의하지 않는 경우 계약의 설정·이행·유지·관리 등이 불가능할 수 있음을 알려드립니다.</div>
+                            </div>
+                            
+                            <div className="mt-6 font-black">2. 개인(신용)정보의 선택적 제공에 관한 사항 (동의함 [V] 동의하지 않음 [  ])</div>
+                            <div className="mt-4 pb-12">
+                                <div className="font-bold">1 개인(신용)정보를 제공받는 자</div>
+                                <div className="pl-2 text-red-500">- 업체명 (이용목적과 관련한 업무를 위탁받은 자)</div>
+                                <div className="pl-2 text-red-500">※ 수탁업체·제휴업체의 현황 및 변경내용은 당사의 인터넷 홈페이지를 통해 안내해 드립니다.</div>
+                                <div className="font-bold mt-2">2 제공받는 자의 이용목적</div>
+                                <div className="pl-2 text-red-500">- 고객 편의제공, 이용권유, 상품·서비스 안내 및 이용권유, 마케팅 활동, 시장조사 등</div>
+                                <div className="font-bold mt-2">3 제공할 개인(신용)정보의 내용</div>
+                                <div className="pl-2">- 상기 이용목적 달성을 위하여 필요한 정보 (개인식별정보, 신용거래정보 등)</div>
+                                <div className="font-bold mt-2">4 제공받는 자의 개인(신용)정보 보유 및 이용기간</div>
+                                <div className="pl-2">- 개인(신용)정보를 제공받는 자의 수집·이용 목적을 달성할 때까지</div>
+                                <div className="pl-2">- 다만, 관련법규에 별도 규정이 있는 경우 그 기간을 따름</div>
+                                <div className="mt-2 text-[12px] text-gray-500">※ 귀하는 동의를 거부할 권리가 있으나, 동의하지 않는 경우 관련 편의제공(사은품, 할인쿠폰 제공 등에 일부 제한이 있을 수 있습니다.<br/>※ 동의한 경우에도 귀하는 동의를 철회하거나 마케팅 목적으로 귀하에게 연락하는 것을 중지하도록 요청할 수 있습니다.</div>
+                            </div>
+                        </div>
+                        {/* FOOTER BLOCK */}
+                        <div className="border border-black mt-2 p-6 flex-shrink-0 relative">
+                            <p className="text-red-500 text-center font-bold mb-4">상기 내용이 변동하는 경우 당사의 인터넷 홈페이지 게시 등을 공시합니다.</p>
+                            <div className="flex justify-between items-center text-sm font-bold">
+                                <div className="pl-4 text-base tracking-widest">{new Date().getFullYear()} 년 {(new Date().getMonth() + 1).toString().padStart(2, '0')} 월 {new Date().getDate().toString().padStart(2, '0')} 일</div>
+                                <div>
+                                    <div className="flex justify-between w-[350px] mb-2 relative">
+                                        <div className="flex gap-4 items-center">
+                                            <span>본인 성명 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{data?.name || ''}</span>
+                                        </div>
+                                        <div className="flex gap-2 items-end relative">
+                                            <span>(서명/날인)</span>
+                                            <div className="w-24 border-b border-gray-400 pb-1 relative h-6">
+                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-100px', bottom: '-20px' }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between w-[350px]">
+                                        <div className="flex gap-4 items-center">
+                                            <span>연락처 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{searchForm.phone}</span>
+                                        </div>
+                                        <div className="flex gap-4 items-center">
+                                            <span>생년월일 : </span>
+                                            <span className="min-w-[80px] border-b border-gray-400 pb-1">{rentalForm.birthDate?.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             )}
         </div>

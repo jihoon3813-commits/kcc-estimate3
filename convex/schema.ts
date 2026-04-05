@@ -66,6 +66,8 @@ export default defineSchema({
             agree2: v.boolean(),
             agree3: v.boolean(),
         }),
+        transferDate: v.optional(v.string()),
+        jobCategory: v.optional(v.string()),
         status: v.string(), // pending
         createdAt: v.string(),
     }).index("by_quoteId", ["quoteId"])
@@ -85,6 +87,8 @@ export default defineSchema({
         balance: v.optional(v.number()),
         conversionMode: v.optional(v.string()),
         monthlyAmount: v.optional(v.number()),
+        transferDate: v.optional(v.string()),
+        jobCategory: v.optional(v.string()),
         files: v.array(v.object({
             category: v.string(),
             name: v.string(),
