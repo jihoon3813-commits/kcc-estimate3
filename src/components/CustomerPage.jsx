@@ -181,6 +181,10 @@ const CustomerPage = () => {
         conversionSubs: null,
         conversionMode: null, // 'full' | 'balance'
         downPaymentToReport: 0,
+        conversionAmount: 0,
+        transferDate: '5', // Default to 5th
+        jobCategory: '',
+        customJob: '',
         agreements: {
             agree1: false,
             agree2: false,
@@ -379,14 +383,25 @@ const CustomerPage = () => {
                         });
                     }
 
-                    setRentalForm({
+                    setRentalForm(prev => ({
+                        ...prev,
                         birthDate: draft.birthDate || '',
                         gender: draft.gender || '',
                         selectedAmount: draft.selectedAmount || null,
                         ownershipType: draft.ownershipType || 'own_own',
                         files: filesObj,
-                        agreements: draft.agreements || { agree1: false, agree2: false, agree3: false }
-                    });
+                        agreements: draft.agreements || { agree1: false, agree2: false, agree3: false },
+                        // If it corresponds to a PLUS trial/calculation, restore that state
+                        isConversion: (applicationType === 'subscription' && (draft.conversionMode === 'plus' || (plusCalc && draft.selectedAmount === plusMonths))) ? true : prev.isConversion,
+                        conversionSubs: (applicationType === 'subscription' && (draft.conversionSubs || (plusCalc && draft.selectedAmount === plusMonths))) 
+                            ? (draft.conversionSubs || { [draft.selectedAmount]: plusCalc.monthlyPayment }) 
+                            : prev.conversionSubs,
+                        conversionMode: (applicationType === 'subscription' && (draft.conversionMode === 'plus' || (plusCalc && draft.selectedAmount === plusMonths))) ? 'plus' : prev.conversionMode,
+                        downPaymentToReport: (applicationType === 'subscription' && (draft.conversionMode === 'plus' || (plusCalc && draft.selectedAmount === plusMonths))) ? (draft.downPaymentToReport || plusCalc.downPayment) : prev.downPaymentToReport,
+                        transferDate: draft.transferDate || prev.transferDate,
+                        jobCategory: draft.jobCategory || prev.jobCategory,
+                        customJob: draft.customJob || prev.customJob
+                    }));
                 }
             };
             loadDraft();
@@ -418,7 +433,8 @@ const CustomerPage = () => {
         }, 3000); // 3 seconds debounce
 
         return () => clearTimeout(timer);
-    }, [rentalForm.birthDate, rentalForm.gender, rentalForm.selectedAmount, rentalForm.ownershipType, rentalForm.agreements]);
+        return () => clearTimeout(timer);
+    }, [rentalForm.birthDate, rentalForm.gender, rentalForm.selectedAmount, rentalForm.ownershipType, rentalForm.agreements, rentalForm.conversionMode, rentalForm.transferDate, rentalForm.jobCategory, rentalForm.customJob]);
 
     const handleSearch = (e) => {
         e.preventDefault();
@@ -822,9 +838,14 @@ const CustomerPage = () => {
                                             <div className="bg-white p-6 rounded-2xl shadow-xl">
                                                 <div className="text-right space-y-1">
                                                     <p className="text-[#c5a059] text-[10px] font-black uppercase tracking-widest">월 납부금</p>
-                                                    <div>
-                                                        <span className="text-4xl md:text-5xl font-black text-[#001a3d] tracking-tighter font-outfit">{plusCalc?.monthlyPayment.toLocaleString()}</span>
-                                                        <span className="text-lg font-black text-[#001a3d] ml-1">원</span>
+                                                    <div className="flex flex-col items-end">
+                                                        <div>
+                                                            <span className="text-4xl md:text-5xl font-black text-[#001a3d] tracking-tighter font-outfit">{plusCalc?.monthlyPayment.toLocaleString()}</span>
+                                                            <span className="text-lg font-black text-[#001a3d] ml-1">원</span>
+                                                        </div>
+                                                        <p className="text-[10px] md:text-xs font-bold text-gray-400 mt-1">
+                                                            총 할부금 : {plusCalc?.totalPayment.toLocaleString()}원
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -852,7 +873,8 @@ const CustomerPage = () => {
                                                     isConversion: true,
                                                     conversionSubs: { [plusMonths]: plusCalc?.monthlyPayment },
                                                     conversionMode: 'plus',
-                                                    downPaymentToReport: plusCalc?.downPayment
+                                                    downPaymentToReport: plusCalc?.downPayment,
+                                                    conversionAmount: plusConversionAmount
                                                 }));
                                             }}
                                             className="w-full py-5 text-[#001a3d] text-lg font-black rounded-xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-2 relative overflow-hidden group"
@@ -1484,7 +1506,7 @@ const CustomerPage = () => {
                                 }} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                                     <ChevronRight size={24} className="rotate-180 text-[#001a3d]" />
                                 </button>
-                                <h2 className="text-lg font-black text-[#001a3d]">{applicationType === 'subscription' ? '스마트 구독 서비스 신청' : '렌탈 서비스 신청'}</h2>
+                                <h2 className="text-lg font-black text-[#001a3d]">{applicationType === 'subscription' ? '그린리모델링 PLUS 신청' : '렌탈 서비스 신청'}</h2>
                                 {isSaving && (
                                     <div className="flex items-center gap-1.5 ml-3 bg-blue-50 px-2.5 py-1 rounded-lg animate-pulse border border-blue-100/50 shadow-sm">
                                         <Loader2 size={12} className="animate-spin text-blue-600" />
@@ -1566,6 +1588,64 @@ const CustomerPage = () => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {applicationType === 'subscription' && (
+                                        <div className="space-y-6 animate-in slide-in-from-bottom-2 mt-6">
+                                            <div className="space-y-4">
+                                                <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 space-y-6">
+                                                    <div>
+                                                        <label className="text-[11px] font-black text-[#001a3d] uppercase tracking-widest mb-3 block">매월 자동이체 날짜</label>
+                                                        <select
+                                                            value={rentalForm.transferDate}
+                                                            onChange={(e) => setRentalForm({ ...rentalForm, transferDate: e.target.value })}
+                                                            className="w-full bg-white border border-gray-200 focus:border-[#c5a059] rounded-xl px-4 py-3.5 font-bold text-base text-[#001a3d] outline-none transition-all shadow-sm appearance-none"
+                                                            style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%23001a3d\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem' }}
+                                                        >
+                                                            {Array.from({ length: 28 }, (_, i) => String(i + 1)).map(day => (
+                                                                <option key={day} value={day}>{day}일</option>
+                                                            ))}
+                                                            <option value="말일">말일</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[11px] font-black text-[#001a3d] uppercase tracking-widest mb-3 block">직군 선택</label>
+                                                        <select
+                                                            value={rentalForm.jobCategory}
+                                                            onChange={(e) => setRentalForm({ ...rentalForm, jobCategory: e.target.value })}
+                                                            className="w-full bg-white border border-gray-200 focus:border-[#c5a059] rounded-xl px-4 py-3.5 font-bold text-base text-[#001a3d] outline-none transition-all shadow-sm appearance-none"
+                                                            style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%23001a3d\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem' }}
+                                                        >
+                                                            <option value="">직군을 선택해주세요</option>
+                                                            {[
+                                                                "건설관련직", "기계관련직", "섬유및의복관련직", "식품가공관련직", "재료관련직",
+                                                                "전기·전자관련직", "정보통신관련직", "화학관련직", "환경·인쇄·목재·가구·공예및생산단순직",
+                                                                "경영·회계·사무관련직", "금융·보험관련직", "관리직", "군인", "농립어업관련직",
+                                                                "교육및자연과학·사회과학연구관련직", "문화·예술·디자인·방송관련직", "법률·경찰·소방·교도관련직",
+                                                                "보건·의료관련직", "사회복지및종교관련직", "경비및청소관련직",
+                                                                "미용·숙박·여행·오락·스포츠관련직", "영업및판매관련직", "운전및운송관련직",
+                                                                "음식서비스관련직", "주부", "무직", "직접입력"
+                                                            ].map(job => (
+                                                                <option key={job} value={job}>{job}</option>
+                                                            ))}
+                                                        </select>
+                                                        
+                                                        {rentalForm.jobCategory === '직접입력' && (
+                                                            <div className="mt-3 animate-in fade-in slide-in-from-top-2">
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="직업을 직접 입력해주세요"
+                                                                    value={rentalForm.customJob}
+                                                                    onChange={(e) => setRentalForm({ ...rentalForm, jobCategory: '직접입력', customJob: e.target.value })}
+                                                                    className="w-full bg-white border border-gray-200 focus:border-[#c5a059] rounded-xl px-4 py-3 text-sm font-bold text-[#001a3d] placeholder:text-gray-300 outline-none transition-all"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -1573,8 +1653,15 @@ const CustomerPage = () => {
                             {rentalStep === 2 && (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
                                     <div className="space-y-2">
-                                        <h3 className="text-2xl font-black text-[#001a3d]">{applicationType === 'subscription' ? '원하시는 월 구독료를' : '원하시는 월 렌탈료를'}<br />선택해주세요</h3>
-                                        <p className="text-gray-500 text-sm font-bold">선택하신 금액에 따라 선납금이 달라집니다.</p>
+                                        <h3 className="text-2xl font-black text-[#001a3d]">
+                                            {applicationType === 'subscription' 
+                                                ? (rentalForm.conversionMode === 'plus' ? 'PLUS 혜택 월 납입금을' : '원하시는 월 구독료를') 
+                                                : '원하시는 월 렌탈료를'}
+                                            <br />확인해주세요
+                                        </h3>
+                                        <p className="text-gray-500 text-sm font-bold">
+                                            {rentalForm.conversionMode === 'plus' ? '전체 금액 중 신청하신 금액에 대한 월 납입금입니다.' : '선택하신 금액에 따라 선납금이 달라집니다.'}
+                                        </p>
                                     </div>
 
                                     <div className="space-y-4">
@@ -1582,11 +1669,13 @@ const CustomerPage = () => {
                                             const isSubscription = applicationType === 'subscription';
                                             const calculation = isSubscription
                                                 ? (rentalForm.isConversion 
-                                                    ? formatKrw(rentalForm.conversionSubs?.[val] || 0)
+                                                    ? (rentalForm.conversionMode === 'plus' 
+                                                        ? (rentalForm.conversionSubs?.[val] ? formatKrw(rentalForm.conversionSubs?.[val]) : '해당없음')
+                                                        : formatKrw(rentalForm.conversionSubs?.[val] || 0))
                                                     : formatKrw(data.subs?.[val] || 0))
                                                 : calculatePackage(data.finalBenefit, val * 10000, val * 500000 / 1.1);
                                             const isSelected = rentalForm.selectedAmount === val;
-                                            const isDisabled = !isSubscription && calculation === '해당없음';
+                                            const isDisabled = !isSubscription ? calculation === '해당없음' : (rentalForm.conversionMode === 'plus' && calculation === '해당없음');
 
                                             return (
                                                 <div
@@ -1614,8 +1703,8 @@ const CustomerPage = () => {
                                                     </div>
                                                     <div className={`mt-6 pt-6 border-t border-dashed ${isSelected ? 'border-white/10' : 'border-gray-100'}`}>
                                                         <div className="flex justify-between items-end">
-                                                            <span className={`text-xs font-bold ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>{isSubscription ? '월 구독료' : '초기 선납금'}</span>
-                                                            <span className="text-xl font-black font-outfit">{isSubscription ? calculation : calculation}</span>
+                                                            <span className={`text-xs font-black ${isSelected ? 'text-white/80' : 'text-gray-400'}`}>{isSubscription ? '신청 월 구독료' : '신청 월 렌탈료'}</span>
+                                                            <span className="text-2xl font-black font-outfit">{calculation}</span>
                                                         </div>
                                                         {isDisabled && (
                                                             <p className="text-[10px] text-red-400 mt-2 font-bold">* 렌탈 총액이 견적가보다 큽니다. 선택 불가.</p>
@@ -1659,15 +1748,16 @@ const CustomerPage = () => {
                                         <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex gap-1">
                                             {[
                                                 { id: 'own_own', label: '본인 소유' },
-                                                { id: 'family_own', label: '가족 소유' },
-                                                { id: 'move_own', label: '이사 예정' }
+                                                { id: 'family_own', label: applicationType === 'rental' ? '가족 소유 (불가)' : '가족 소유', disabled: applicationType === 'rental' },
+                                                { id: 'move_own', label: applicationType === 'rental' ? '이사 예정 (불가)' : '이사 예정', disabled: applicationType === 'rental' }
                                             ].map(t => (
                                                 <button
                                                     key={t.id}
+                                                    disabled={t.disabled}
                                                     onClick={() => setRentalForm({ ...rentalForm, ownershipType: t.id })}
                                                     className={`flex-1 py-3 text-[11px] font-black rounded-xl transition-all ${rentalForm.ownershipType === t.id
                                                         ? 'bg-[#001a3d] text-white shadow-md'
-                                                        : 'text-gray-400 hover:text-gray-600'
+                                                        : t.disabled ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-gray-600'
                                                         }`}
                                                 >
                                                     {t.label}
@@ -1684,7 +1774,7 @@ const CustomerPage = () => {
                                                     {[
                                                         { key: 'registry', label: '등기부등본', desc: '본인 명의의 부동산임을 증명해야 합니다.', icon: <Upload size={18} /> },
                                                         { key: 'id_card', label: '신분증 사본', desc: '신원을 확인하기 위한 서류입니다.', icon: <ShieldCheck size={18} /> },
-                                                        { key: 'bank_book', label: '통장사본(자동이체용)', desc: '구독/렌탈료 자동이체 설정을 위한 서류입니다.', icon: <Upload size={18} /> }
+                                                        ...(applicationType === 'subscription' ? [{ key: 'bank_book', label: '통장사본(자동이체용)', desc: '구독/렌탈료 자동이체 설정을 위한 서류입니다.', icon: <Upload size={18} /> }] : [])
                                                     ].map(doc => (
                                                         <div key={doc.key} className="space-y-4">
                                                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs font-bold leading-relaxed">
@@ -1717,7 +1807,7 @@ const CustomerPage = () => {
                                                         { key: 'registry', label: '등기부등본', desc: '부동산 소유주 확인을 위한 서류입니다.', icon: <Upload size={18} /> },
                                                         { key: 'family', label: '가족관계증명서', desc: '소유주와의 관계를 증명해야 합니다.', icon: <Upload size={18} /> },
                                                         { key: 'id_card', label: '신분증 사본', desc: '신원을 확인하기 위한 서류입니다.', icon: <ShieldCheck size={18} /> },
-                                                        { key: 'bank_book', label: '통장사본(자동이체용)', desc: '구독/렌탈료 자동이체 설정을 위한 서류입니다.', icon: <Upload size={18} /> }
+                                                        { key: 'bank_book', label: '통장사본(자동이체용)', desc: `${applicationType === 'subscription' ? '구독료' : '렌탈료'} 자동이체 설정을 위한 서류입니다.`, icon: <Upload size={18} /> }
                                                     ].map(doc => (
                                                         <div key={doc.key} className="space-y-4">
                                                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs font-bold leading-relaxed">
@@ -1749,7 +1839,7 @@ const CustomerPage = () => {
                                                     {[
                                                         { key: 'contract', label: '부동산 매매계약서', desc: '이사 예정인 주소지의 계약 증빙이 필요합니다.', icon: <Upload size={18} /> },
                                                         { key: 'id_card', label: '신분증 사본', desc: '신원을 확인하기 위한 서류입니다.', icon: <ShieldCheck size={18} /> },
-                                                        { key: 'bank_book', label: '통장사본(자동이체용)', desc: '구독/렌탈료 자동이체 설정을 위한 서류입니다.', icon: <Upload size={18} /> }
+                                                        { key: 'bank_book', label: '통장사본(자동이체용)', desc: `${applicationType === 'subscription' ? '구독료' : '렌탈료'} 자동이체 설정을 위한 서류입니다.`, icon: <Upload size={18} /> }
                                                     ].map(doc => (
                                                         <div key={doc.key} className="space-y-4">
                                                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs font-bold leading-relaxed">
@@ -1785,7 +1875,7 @@ const CustomerPage = () => {
                                     <div className="space-y-2">
                                         <h3 className="text-2xl font-black text-[#001a3d]">마지막으로<br />동의가 필요해요</h3>
                                         <p className="text-gray-500 text-sm font-bold">
-                                            {applicationType === 'subscription' ? '신용조회를 위해 약관 확인이 필요합니다.' : '신용조회를 위한 약관 동의가 필요합니다.'}
+                                            {applicationType === 'subscription' ? 'PLUS 혜택 신청을 위해 약관 확인이 필요합니다.' : '신용조회를 위한 약관 동의가 필요합니다.'}
                                         </p>
                                     </div>
 
@@ -1993,7 +2083,14 @@ const CustomerPage = () => {
                                 )}
                                 <button
                                     disabled={(() => {
-                                        if (rentalStep === 1) return !rentalForm.birthDate || rentalForm.birthDate.length < 10 || !rentalForm.gender;
+                                        if (rentalStep === 1) {
+                                            const commonValid = rentalForm.birthDate && rentalForm.birthDate.length >= 10 && rentalForm.gender;
+                                            if (applicationType === 'subscription') {
+                                                const jobValid = rentalForm.jobCategory && (rentalForm.jobCategory !== '직접입력' || rentalForm.customJob);
+                                                return !commonValid || !rentalForm.transferDate || !jobValid;
+                                            }
+                                            return !commonValid;
+                                        }
                                         if (rentalStep === 2) {
                                             if (applicationType === 'subscription') return !rentalForm.selectedAmount;
                                             const calc = calculatePackage(data.finalBenefit, rentalForm.selectedAmount * 10000, rentalForm.selectedAmount * 500000 / 1.1);
@@ -2161,9 +2258,9 @@ const CustomerPage = () => {
                                             <span className="min-w-[80px] border-b border-gray-400 pb-1">{data?.name || ''}</span>
                                         </div>
                                         <div className="flex gap-2 items-end relative">
-                                            <span>(서명/날인)</span>
+                                            <span>서명/날인</span>
                                             <div className="w-24 border-b border-gray-400 pb-1 relative h-6">
-                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-100px', bottom: '-20px' }}></div>
+                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-32px', bottom: '-10px' }}></div>
                                             </div>
                                         </div>
                                     </div>
@@ -2228,9 +2325,9 @@ const CustomerPage = () => {
                                             <span className="min-w-[80px] border-b border-gray-400 pb-1">{data?.name || ''}</span>
                                         </div>
                                         <div className="flex gap-2 items-end relative">
-                                            <span>(서명/날인)</span>
+                                            <span>서명/날인</span>
                                             <div className="w-24 border-b border-gray-400 pb-1 relative h-6">
-                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-100px', bottom: '-20px' }}></div>
+                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-32px', bottom: '-10px' }}></div>
                                             </div>
                                         </div>
                                     </div>
@@ -2324,9 +2421,9 @@ const CustomerPage = () => {
                                             <span className="min-w-[80px] border-b border-gray-400 pb-1">{data?.name || ''}</span>
                                         </div>
                                         <div className="flex gap-2 items-end relative">
-                                            <span>(서명/날인)</span>
+                                            <span>서명/날인</span>
                                             <div className="w-24 border-b border-gray-400 pb-1 relative h-6">
-                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-100px', bottom: '-20px' }}></div>
+                                                <div className="signature-container absolute" style={{ width: '128px', height: '64px', left: '-32px', bottom: '-10px' }}></div>
                                             </div>
                                         </div>
                                     </div>

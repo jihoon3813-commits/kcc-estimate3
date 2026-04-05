@@ -213,6 +213,15 @@ export const submitRentalApplication = async (customerData, rentalForm, draftId)
             }));
         }
 
+        const finalBenefit = customerData.finalBenefit || customerData.finalQuote || 0;
+        
+        let subAmount = 0;
+        if (rentalForm.selectedAmount === 11 || rentalForm.selectedAmount === 111000) subAmount = 5000000;
+        else if (rentalForm.selectedAmount === 22 || rentalForm.selectedAmount === 222000) subAmount = 10000000;
+        else if (rentalForm.selectedAmount === 33 || rentalForm.selectedAmount === 333000) subAmount = 15000000;
+
+        const downPayment = Math.max(0, finalBenefit - subAmount);
+
         const params = {
             ...(draftId ? { id: draftId } : {}),
             quoteId: customerData._id || undefined,
@@ -223,11 +232,11 @@ export const submitRentalApplication = async (customerData, rentalForm, draftId)
             gender: rentalForm.gender,
             selectedAmount: rentalForm.selectedAmount,
             ownershipType: rentalForm.ownershipType,
-            finalBenefit: customerData.finalBenefit || 0,
-            downPayment: rentalForm.downPaymentToReport || 0,
-            balance: (customerData.finalBenefit || 0) - (rentalForm.downPaymentToReport || 0),
+            finalBenefit: finalBenefit,
+            downPayment: downPayment,
+            balance: finalBenefit - downPayment,
             conversionMode: rentalForm.conversionMode || '전액구독',
-            monthlyAmount: rentalForm.selectedAmount ? (rentalForm.selectedAmount === 11 ? 111000 : rentalForm.selectedAmount === 22 ? 222000 : rentalForm.selectedAmount === 33 ? 333000 : 0) : 0,
+            monthlyAmount: rentalForm.selectedAmount ? (rentalForm.selectedAmount === 11 || rentalForm.selectedAmount === 111000 ? 111000 : rentalForm.selectedAmount === 22 || rentalForm.selectedAmount === 222000 ? 222000 : rentalForm.selectedAmount === 33 || rentalForm.selectedAmount === 333000 ? 333000 : 0) : 0,
             files: uploadedFiles,
             agreements: rentalForm.agreements
         };
@@ -281,9 +290,9 @@ export const saveRentalDraft = async (customerData, rentalForm) => {
             gender: rentalForm.gender || "",
             selectedAmount: rentalForm.selectedAmount || 0,
             ownershipType: rentalForm.ownershipType || "own_own",
-            finalBenefit: customerData.finalBenefit || 0,
+            finalBenefit: customerData.finalQuote || 0,
             downPayment: rentalForm.downPaymentToReport || 0,
-            balance: (customerData.finalBenefit || 0) - (rentalForm.downPaymentToReport || 0),
+            balance: (customerData.finalQuote || 0) - (rentalForm.downPaymentToReport || 0),
             conversionMode: rentalForm.conversionMode || '전액구독',
             monthlyAmount: rentalForm.selectedAmount ? (rentalForm.selectedAmount === 11 ? 111000 : rentalForm.selectedAmount === 22 ? 222000 : rentalForm.selectedAmount === 33 ? 333000 : 0) : 0,
             files: (rentalForm.files ? Object.entries(rentalForm.files).flatMap(([cat, files]) => 
@@ -373,7 +382,8 @@ export const submitSubscriptionApplication = async (customerData, form, draftId)
             const customerRate = 0.02;
             const customerInterest = Math.floor(amount * customerRate * years);
             const totalPayment = amount + customerInterest;
-            monthlyAmount = Math.floor((totalPayment / form.selectedAmount) / 100) * 100;
+            // 10 won rounding to match UI
+            monthlyAmount = Math.floor((totalPayment / form.selectedAmount) / 10) * 10;
         }
 
         const params = {
@@ -386,9 +396,9 @@ export const submitSubscriptionApplication = async (customerData, form, draftId)
             gender: form.gender,
             selectedAmount: form.selectedAmount,
             ownershipType: form.ownershipType,
-            finalBenefit: customerData.finalBenefit || 0,
+            finalBenefit: customerData.finalQuote || 0,
             downPayment: form.downPaymentToReport || 0,
-            balance: (customerData.finalBenefit || 0) - (form.downPaymentToReport || 0),
+            balance: (form.isConversion && form.conversionAmount) ? form.conversionAmount : (customerData.finalQuote || 0) - (form.downPaymentToReport || 0),
             conversionMode: form.conversionMode || '전액구독',
             monthlyAmount: monthlyAmount,
             transferDate: form.transferDate,
@@ -428,7 +438,8 @@ export const saveSubscriptionDraft = async (customerData, form) => {
             const customerRate = 0.02;
             const customerInterest = Math.floor(amount * customerRate * years);
             const totalPayment = amount + customerInterest;
-            monthlyAmount = Math.floor((totalPayment / form.selectedAmount) / 100) * 100;
+            // 10 won rounding to match UI
+            monthlyAmount = Math.floor((totalPayment / form.selectedAmount) / 10) * 10;
         }
 
         const params = {
@@ -440,9 +451,9 @@ export const saveSubscriptionDraft = async (customerData, form) => {
             gender: form.gender || "",
             selectedAmount: form.selectedAmount || 0,
             ownershipType: form.ownershipType || "own_own",
-            finalBenefit: customerData.finalBenefit || 0,
+            finalBenefit: customerData.finalQuote || 0,
             downPayment: form.downPaymentToReport || 0,
-            balance: (customerData.finalBenefit || 0) - (form.downPaymentToReport || 0),
+            balance: (form.conversionAmount || customerData.finalQuote || 0),
             conversionMode: form.conversionMode || '전액구독',
             monthlyAmount: monthlyAmount,
             transferDate: form.transferDate || "",

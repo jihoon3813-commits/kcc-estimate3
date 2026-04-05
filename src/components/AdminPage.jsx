@@ -36,7 +36,7 @@ const AdminPage = () => {
 
     // Form State
     const [statusType, setStatusType] = useState('가견적');
-    const [materialMultiplier, setMaterialMultiplier] = useState(1.3);
+    const [materialMultiplier, setMaterialMultiplier] = useState(1.35);
     const [materialSupplyCost, setMaterialSupplyCost] = useState(0);
     const [etcSupplyCost, setEtcSupplyCost] = useState(0);
     const [annualRate, setAnnualRate] = useState(6.0); // Image 2: 연이율
@@ -47,7 +47,7 @@ const AdminPage = () => {
         36: 14.12,
         24: 13.16
     });
-    const [lumpSumDiscountRate, setLumpSumDiscountRate] = useState(6.0); // Image 4: 할인율
+    const [lumpSumDiscountRate, setLumpSumDiscountRate] = useState(8.0); // Image 4: 할인율
     const [extraDiscount, setExtraDiscount] = useState(0);
     const [customerPhone, setCustomerPhone] = useState('');
 
@@ -73,7 +73,7 @@ const AdminPage = () => {
         })),
         lumpSum: {
             quotePrice: 0,
-            discountRate: 6.0,
+            discountRate: 8.0,
             discountedPrice: 0,
             margin: 0,
             marginRate: 0
@@ -256,7 +256,7 @@ const AdminPage = () => {
             if (data.totalEtc) {
                 setEtcSupplyCost(data.totalEtc);
             }
-            setMaterialMultiplier(1.3);
+            setMaterialMultiplier(1.35);
 
             setStatus("분석 완료!");
         } catch (error) {
@@ -349,7 +349,7 @@ const AdminPage = () => {
             return;
         }
         if (materialSupplyCost <= 0) {
-            if (!window.confirm("공급가(자재비)가 0원입니다. 진행하시겠습니까? (마진 계산이 정확하지 않을 수 있습니다.)")) return;
+            if (!window.confirm("공급가(자재비)가 0원입니다. 진행하시겠습니까? (마진 계산이 렌탈료/구독료 자동이체 설정을 위한 서류입니다.)")) return;
         }
         setIsConfirmMode(true);
     };
@@ -1539,7 +1539,7 @@ const AdminPage = () => {
                                 <thead className="bg-[#2c3e50] text-white">
                                     <tr>
                                         {[
-                                            "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "이체", "직군", "소유", "할인가", "선납금", "잔금", "구분", "개월", "구독료", "서류"
+                                            "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "소유", "일시불할인가", "선납금", "잔금", "구분", "개월", "렌탈료", "서류", "저장상태"
                                         ].map((th, i) => (
                                             <th key={i} className="px-2 py-3.5 font-black whitespace-nowrap text-[11px] uppercase tracking-tighter first:pl-6 last:pr-6 text-center">{th}</th>
                                         ))}
@@ -1548,7 +1548,7 @@ const AdminPage = () => {
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredRentalList.length === 0 ? (
                                         <tr>
-                                            <td colSpan="17" className="text-center py-20 text-gray-400 font-bold">렌탈 신청 내역이 없습니다.</td>
+                                            <td colSpan="16" className="text-center py-20 text-gray-400 font-bold">렌탈 신청 내역이 없습니다.</td>
                                         </tr>
                                     ) : (
                                         filteredRentalList.map((item, idx) => (
@@ -1570,8 +1570,6 @@ const AdminPage = () => {
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 font-mono text-[10px]">{item.phone}</td>
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.birthDate}</td>
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">{item.gender === 'male' ? '남' : '여'}</td>
-                                                <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px] font-bold">{item.transferDate ? `${item.transferDate}${item.transferDate === '말일' ? '' : '일'}` : '-'}</td>
-                                                <td className="px-2 py-3.5 text-center text-gray-500 text-[9.5px] leading-tight min-w-[120px] font-medium">{item.jobCategory || '-'}</td>
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-500 text-[10px]">
                                                     {item.ownershipType === 'own_own' ? '본인' : (item.ownershipType === 'family_own' ? '가족' : '이사')}
                                                 </td>
@@ -1579,10 +1577,10 @@ const AdminPage = () => {
                                                     {item.finalBenefit ? Number(item.finalBenefit).toLocaleString() + '원' : '-'}
                                                 </td>
                                                 <td className="px-2 py-3.5 text-right whitespace-nowrap text-[#001a3d] font-bold text-[10px]">
-                                                    {item.downPayment ? Number(item.downPayment).toLocaleString() + '원' : '0원'}
+                                                    {item.downPayment ? Number(item.downPayment).toLocaleString() + '원' : (item.downPaymentToReport ? Number(item.downPaymentToReport).toLocaleString() + '원' : '0원')}
                                                 </td>
                                                 <td className="px-2 py-3.5 text-right whitespace-nowrap text-gray-600 text-[10px]">
-                                                    {item.balance ? Number(item.balance).toLocaleString() + '원' : '-'}
+                                                    {item.monthlyAmount ? Number(item.monthlyAmount * 60).toLocaleString() + '원' : '-'}
                                                 </td>
                                                 <td className="px-2 py-3.5 text-center whitespace-nowrap text-gray-600 text-[10px] font-bold">
                                                     {item.conversionMode === 'full' ? '전액' : (item.conversionMode === 'balance' ? '잔금' : item.conversionMode?.replace('구독','') || '전액')}
@@ -1611,6 +1609,11 @@ const AdminPage = () => {
                                                             </a>
                                                         ))}
                                                     </div>
+                                                </td>
+                                                <td className="px-2 py-3.5 text-center">
+                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-black ${(item.status === 'pending' || item.status === '접수') ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
+                                                        {(item.status === 'pending' || item.status === '접수') ? '신청완료' : '임시저장'}
+                                                    </span>
                                                 </td>
                                             </tr>
                                         ))
@@ -1664,7 +1667,7 @@ const AdminPage = () => {
                                     <thead className="bg-[#1a3a3a] text-white">
                                         <tr>
                                             {[
-                                                "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "이체", "직군", "소유", "할인가", "선납금", "잔금", "구분", "개월", "구독료", "서류"
+                                                "순번", "상태", "일자", "고객명", "전화번호", "생일", "성", "이체", "직군", "소유", "최종견적가", "선납금", "잔금", "구분", "개월", "월할부금", "할부총액", "서류", "저장상태"
                                             ].map((th, i) => (
                                                 <th key={i} className="px-2 py-3.5 font-black whitespace-nowrap text-[11px] uppercase tracking-tighter first:pl-6 last:pr-6 text-center">{th}</th>
                                             ))}
@@ -1673,7 +1676,7 @@ const AdminPage = () => {
                                     <tbody className="divide-y divide-gray-100">
                                         {filteredSubscriptionList.length === 0 ? (
                                             <tr>
-                                                <td colSpan="17" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
+                                                <td colSpan="19" className="text-center py-20 text-gray-400 font-bold">할부 신청 내역이 없습니다.</td>
                                             </tr>
                                         ) : (
                                             filteredSubscriptionList.map((item, idx) => (
@@ -1718,6 +1721,9 @@ const AdminPage = () => {
                                                     <td className="px-2 py-3.5 text-right whitespace-nowrap font-bold text-teal-600 text-[10px]">
                                                         {item.monthlyAmount ? Number(item.monthlyAmount).toLocaleString() + '원' : '-'}
                                                     </td>
+                                                    <td className="px-2 py-3.5 text-right whitespace-nowrap font-black text-rose-600 text-[10px]">
+                                                        {item.monthlyAmount && item.selectedAmount ? Number(item.monthlyAmount * item.selectedAmount).toLocaleString() + '원' : '-'}
+                                                    </td>
                                                     <td className="px-2 py-3.5 text-left">
                                                         <div className="flex flex-wrap gap-1 min-w-[100px]">
                                                             {item.files.map((file, fIdx) => (
@@ -1736,6 +1742,11 @@ const AdminPage = () => {
                                                                 </a>
                                                             ))}
                                                         </div>
+                                                    </td>
+                                                    <td className="px-2 py-3.5 text-center">
+                                                        <span className={`px-2 py-1 rounded-md text-[9px] font-black ${(item.status === 'pending' || item.status === '접수') ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-400'}`}>
+                                                            {(item.status === 'pending' || item.status === '접수') ? '신청완료' : '임시저장'}
+                                                        </span>
                                                     </td>
                                                 </tr>
                                             ))
