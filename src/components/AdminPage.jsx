@@ -142,7 +142,7 @@ const AdminPage = () => {
         const currentExtraDiscount = isEditingModal ? (modalEditData.extraDiscount || 0) : (selectedQuote.extraDiscount || 0);
         const lumpSumPrice = Math.floor((finalQuote * (1 - currentLumpSumRate / 100) - currentExtraDiscount) / 100) * 100;
         const lumpSumMargin = Number(lumpSumPrice - kccPrice) || 0;
-        const lumpSumMarginRate = Number(finalQuote > 0 ? (lumpSumMargin / finalQuote) * 100 : 0) || 0;
+        const lumpSumMarginRate = Number(lumpSumPrice > 0 ? (lumpSumMargin / lumpSumPrice) * 100 : 0) || 0;
 
         const greenPlus = [60, 48, 36, 24].map(month => {
             const years = month / 12;
@@ -157,7 +157,7 @@ const AdminPage = () => {
             const upfrontFee = Math.floor((totalPayment * (rate / 100)) / 10) * 10;
             const settlementAmount = Math.floor((totalPayment - upfrontFee) / 10) * 10;
             const margin = Math.floor((settlementAmount - kccPrice) / 10) * 10;
-            const marginRate = finalQuote > 0 ? (margin / finalQuote) * 100 : 0;
+            const marginRate = lumpSumPrice > 0 ? (margin / lumpSumPrice) * 100 : 0;
 
             return {
                 month,
@@ -282,7 +282,7 @@ const AdminPage = () => {
         const lumpSumPrice = Math.floor((finalQuote * (1 - lumpSumDiscountRate / 100) - extraDiscount) / 100) * 100;
         const totalSupplyCost = materialSupplyCost + etcSupplyCost;
         const lumpSumMargin = lumpSumPrice - totalSupplyCost;
-        const lumpSumMarginRate = finalQuote > 0 ? (lumpSumMargin / finalQuote) * 100 : 0;
+        const lumpSumMarginRate = lumpSumPrice > 0 ? (lumpSumMargin / lumpSumPrice) * 100 : 0;
 
         // 3. Green Remodeling PLUS (Image 3)
         const greenPlus = [60, 48, 36, 24].map(month => {
@@ -299,7 +299,7 @@ const AdminPage = () => {
             const upfrontFee = Math.floor((totalPayment * (rate / 100)) / 10) * 10;
             const settlementAmount = Math.floor((totalPayment - upfrontFee) / 10) * 10;
             const margin = Math.floor((settlementAmount - totalSupplyCost) / 10) * 10;
-            const marginRate = finalQuote > 0 ? (margin / finalQuote) * 100 : 0;
+            const marginRate = lumpSumPrice > 0 ? (margin / lumpSumPrice) * 100 : 0;
 
             return {
                 month,
